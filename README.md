@@ -52,12 +52,6 @@
 Μπορείτε να εγκαταστήσετε την τελευταία έκδοση απευθείας από το κατάστημα προσθέτων της Mozilla:
 👉 [Encrypted Carousel Bookmark Flow στο Firefox Add-ons](https://addons.mozilla.org/el/firefox/addon/encryptedcarouselbookmarkflow/)
 
-### 🛠️ Εγκατάσταση για Ανάπτυξη (Development)
-Αν θέλετε να φορτώσετε την επέκταση τοπικά για δοκιμή ή ανάπτυξη:
-1. Κατεβάστε ή κάντε clone αυτό το repository.
-2. Ανοίξτε τον Firefox και πηγαίνετε στη διεύθυνση `about:debugging`.
-3. Πατήστε **"This Firefox"** και μετά **"Load Temporary Add-on..."**.
-4. Επιλέξτε το αρχείο `manifest.json` από τον φάκελο του project.
 
 ## 📄 Άδεια Χρήσης
 Αυτό το project διανέμεται υπό την άδεια **GNU General Public License v3.0 only (GPL-3.0-only)**. 
