@@ -1,0 +1,90 @@
+{
+  "extName": {
+    "message": "Encrypted Carousel Bookmark Flow",
+    "description": "Nom de l'extension (utilisé par le navigateur)"
+  },
+  "extDescription": {
+    "message": "Espace de marque-pages chiffré isolé.",
+    "description": "Description de l'extension (utilisée par le navigateur)"
+  },
+
+  "options_title": {
+    "message": "Paramètres de la page d'accueil et du nouvel onglet"
+  },
+  "options_why": {
+    "message": "Pour des raisons de sécurité, Firefox n'autorise pas les extensions à afficher le Carousel Bookmark Flow au-dessus de about:home et about:newtab. Définissez une nouvelle page d'accueil."
+  },
+  "options_url_label": {
+    "message": "Entrez l'adresse souhaitée (ex. www.google.com) :"
+  },
+  "options_save": {
+    "message": "Enregistrer"
+  },
+  "options_reset": {
+    "message": "Supprimer les paramètres"
+  },
+  "options_note": {
+    "message": "Ce paramètre prendra effet immédiatement. Vous pouvez le modifier à tout moment depuis les paramètres de l'extension."
+  },
+  "options_more_settings": {
+    "message": "Plus de paramètres"
+  },
+
+  "import_title": {
+    "message": "Importer les favicons depuis une sauvegarde"
+  },
+  "import_description": {
+    "message": "Sélectionnez un fichier JSON créé lors de l'export des favicons pour restaurer toutes les images stockées."
+  },
+  "import_button": {
+    "message": "Importer"
+  },
+
+  "backup_export_bookmarks": {
+    "message": "Exporter les marque-pages"
+  },
+  "backup_export_favicons": {
+    "message": "Exporter les favicons"
+  },
+  "backup_export_encrypted_backup": {
+    "message": "Exporter les marque-pages de l'espace chiffré avec chiffrement (backup)"
+  },
+  "backup_export_encrypted_plain": {
+    "message": "Exporter les marque-pages de l'espace chiffré sans chiffrement (backup)"
+  },
+  "backup_import_encrypted": {
+    "message": "Importer des marque-pages dans l'espace chiffré"
+  },
+
+  "tooltip_toggle_performance": {
+    "message": "Mode performance (pour ordinateurs plus anciens)"
+  },
+
+  "context_new_tab": {
+    "message": "Ouvrir dans un nouvel onglet"
+  },
+  "context_rename_bookmark": {
+    "message": "Renommer le marque-page"
+  },
+  "context_rename_folder": {
+    "message": "Renommer le dossier"
+  },
+
+  "prompt_rename_folder": {
+    "message": "Nouveau nom du dossier :"
+  },
+  "prompt_rename_bookmark": {
+    "message": "Nouveau nom du marque-page :"
+  },
+  "prompt_merge_folder": {
+    "message": "Nom du nouveau dossier pour la fusion :"
+  },
+
+  "switch_space_not_initialized": {
+    "message": "Le changement d'espace n'est pas possible.\nVeuillez d'abord créer l'espace chiffré en définissant votre mot de passe."
+  },
+
+  "alert_export_plain_confirm": {
+    "message": "Attention : l'exportation sans chiffrement révélera tous les marque-pages chiffrés. Continuer ?"
+  }
+}

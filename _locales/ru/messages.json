@@ -1,0 +1,90 @@
+{
+  "extName": {
+    "message": "Encrypted Carousel Bookmark Flow",
+    "description": "Имя расширения (используется браузером)"
+  },
+  "extDescription": {
+    "message": "Изолированное зашифрованное пространство закладок.",
+    "description": "Описание расширения (используется браузером)"
+  },
+
+  "options_title": {
+    "message": "Настройки домашней и новой вкладки"
+  },
+  "options_why": {
+    "message": "По соображениям безопасности Firefox не позволяет расширениям отображать Carousel Bookmark Flow поверх about:home и about:newtab. Задайте новый адрес домашней страницы."
+  },
+  "options_url_label": {
+    "message": "Введите желаемый адрес (например, www.google.com):"
+  },
+  "options_save": {
+    "message": "Сохранить"
+  },
+  "options_reset": {
+    "message": "Удалить настройки"
+  },
+  "options_note": {
+    "message": "Эта настройка вступит в силу немедленно. Вы можете изменить её в любое время в настройках расширения."
+  },
+  "options_more_settings": {
+    "message": "Больше настроек"
+  },
+
+  "import_title": {
+    "message": "Импорт фавиконок из резервной копии"
+  },
+  "import_description": {
+    "message": "Выберите файл JSON, созданный при экспорте фавиконок, чтобы восстановить все сохранённые изображения."
+  },
+  "import_button": {
+    "message": "Импорт"
+  },
+
+  "backup_export_bookmarks": {
+    "message": "Экспорт закладок"
+  },
+  "backup_export_favicons": {
+    "message": "Экспорт фавиконок"
+  },
+  "backup_export_encrypted_backup": {
+    "message": "Экспорт закладок зашифрованного пространства с шифрованием (backup)"
+  },
+  "backup_export_encrypted_plain": {
+    "message": "Экспорт закладок зашифрованного пространства без шифрования (backup)"
+  },
+  "backup_import_encrypted": {
+    "message": "Импорт закладок в зашифрованное пространство"
+  },
+
+  "tooltip_toggle_performance": {
+    "message": "Режим производительности (для старых компьютеров)"
+  },
+
+  "context_new_tab": {
+    "message": "Открыть в новой вкладке"
+  },
+  "context_rename_bookmark": {
+    "message": "Переименовать закладку"
+  },
+  "context_rename_folder": {
+    "message": "Переименовать папку"
+  },
+
+  "prompt_rename_folder": {
+    "message": "Новое имя папки:"
+  },
+  "prompt_rename_bookmark": {
+    "message": "Новое имя закладки:"
+  },
+  "prompt_merge_folder": {
+    "message": "Имя новой папки для объединения:"
+  },
+
+  "switch_space_not_initialized": {
+    "message": "Переключение пространства невозможно.\nПожалуйста, сначала создайте зашифрованное пространство, задав пароль."
+  },
+
+  "alert_export_plain_confirm": {
+    "message": "Внимание: Экспорт без шифрования раскроет все зашифрованные закладки. Продолжить?"
+  }
+}

@@ -1,0 +1,1928 @@
+/* overlay/injected-shadow.css
+ *
+ * ECBF v12.2.0 — Injected Shadow DOM Styles
+ * Ίδιο ΑΚΡΙΒΩΣ με v12.4 visuals
+ *
+ * @contract ECBF-v12E-Final1-Contract-Freeze v1.1
+ * @decision D-13.1 (Closed Shadow DOM)
+ * @decision D-54 (Menu keyboard isolation — CSS support)
+ *
+ * ═══════════════════════════════════════════════════════════════════
+ *  CHANGELOG v12.2.0 (2026-09-26) — LOW-END HARDWARE OPTIMIZATION
+ * ═══════════════════════════════════════════════════════════════════
+ *
+ *  ⭐ GPU-01: Νέα section §23 — `:host(.low-end)` adaptive mode
+ *
+ *    ΠΡΟΒΛΗΜΑ:
+ *      Σε low-end hardware (Intel UHD, 2 cores / 2GB RAM), τα
+ *      backdrop-filter: blur(20-30px) + .card::before blur(8px)
+ *      δημιουργούν 2 GPU layers per card. Με 20+ κάρτες → stutter
+ *      κατά το scroll και το hover.
+ *
+ *    ΛΥΣΗ:
+ *      Όταν το content-overlay.js προσθέσει την class `.low-end`
+ *      στο :host element (auto-detect μέσω navigator.hardwareConcurrency
+ *      + deviceMemory), τα εξής απενεργοποιούνται:
+ *        • .win7-aero backdrop-filter
+ *        • .layer2 backdrop-filter
+ *        • .card backdrop-filter
+ *        • .card::before blur filter
+ *        • Τα menu popup backdrop-filters
+ *
+ *      Αντ' αυτών: solid rgba backgrounds με σκούρο tone,
+ *      ώστε η οπτική ιεραρχία να παραμένει.
+ *
+ *    ΔΕΝ ΑΛΛΑΖΕΙ:
+ *      • Λειτουργικότητα (κλικ, hover, drag, menus)
+ *      • Layout / διαστάσεις
+ *      • Colors accents (gold selection, danger, folder targets)
+ *      • Όλα τα v12E.E fixes (pointer-events, etc.)
+ *
+ *    ΔΕΝ ΕΠΗΡΕΑΖΕΙ:
+ *      • High-end μηχανήματα (δεν παίρνουν την class)
+ *      • Users με `cbf_perfMode` (ξεχωριστό, υπάρχει §11)
+ *
+ * ═══════════════════════════════════════════════════════════════════
+ *  V12E.E FIX (2026-09-17) — CRITICAL (preserved)
+ * ═══════════════════════════════════════════════════════════════════
+ *
+ *  V12E.E-01 (MENUS POINTER-EVENTS — CRITICAL):
+ *    ΠΡΟΒΛΗΜΑ:
+ *      Το #cbf-overlay-host έχει pointer-events:none (inline style
+ *      από content-overlay.js). Τα popup menus mount-άρονται
+ *      ΑΠΕΥΘΕΙΑΣ στο shadowRoot (ΟΧΙ μέσα στο .win7-aero), οπότε
+ *      κληρονομούν το pointer-events:none.
+ *
+ *    ΛΥΣΗ:
+ *      pointer-events: auto !important στα popup menus.
+ *      Δες §18, §19, §22.
+ *
+ * ═══════════════════════════════════════════════════════════════════
+ *  V12E ADDITIONS (D-51..D-56) (preserved)
+ * ═══════════════════════════════════════════════════════════════════
+ *
+ *  Sections §18-§19: Main Menu + Context Menu popups
+ *  Section §20: Common menu item styles
+ *  Section §21: Perf-mode overrides για menus
+ *  Section §22: V12E.E-01 defense-in-depth
+ *
+ *  ΔΕΝ αλλάζει:
+ *    - §1-§17 — όλα τα C3 / V12E.E styles παραμένουν ΑΚΡΙΒΩΣ ίδια
+ *
+ * ═══════════════════════════════════════════════════════════════════
+ *  FIX v1.5.0 (Search position — v12.4 parity) (preserved)
+ * ═══════════════════════════════════════════════════════════════════
+ *
+ *  Επαναφορά σε:
+ *    position: absolute;
+ *    left: 120px;
+ *    top: 50%;
+ *    transform: translateY(-50%);
+ *
+ * ═══════════════════════════════════════════════════════════════════
+ *  FAVICON BACKGROUND EFFECT (v12.4 parity) (preserved)
+ * ═══════════════════════════════════════════════════════════════════
+ *
+ *  Το `.card::before` δημιουργεί ένα blur-αρισμένο favicon layer
+ *  πίσω από το περιεχόμενο της κάρτας.
+ *
+ * ═══════════════════════════════════════════════════════════════════
+ *  PERFORMANCE PATCH (preserved)
+ * ═══════════════════════════════════════════════════════════════════
+ *
+ *  🟡 will-change BUDGET FIX
+ *    - .card: ΑΦΑΙΡΕΘΗΚΕ το will-change + contain
+ *    - .win7-aero: ΚΡΑΤΑΜΕ will-change: transform (1 element)
+ *
+ * ═══════════════════════════════════════════════════════════════════
+ *  v12.4 SIZES (preserved)
+ * ═══════════════════════════════════════════════════════════════════
+ *
+ *  .card:       width: clamp(140px, 20vw, 175px)
+ *               min-height: 125px
+ *               max-height: 145px
+ *  .card-icon:  clamp(48px, 6vw, 58px)
+ *  .card-title: clamp(11px, 1.8vw, 13px)
+ *  .card-avatar: 24px
+ *  .layer3:     height 175px, min-height 165px, padding 20px 20px
+ *
+ * ═══════════════════════════════════════════════════════════════════
+ *  MULTI-SELECTION (C3 Multi-Select) (preserved)
+ * ═══════════════════════════════════════════════════════════════════
+ *
+ *  Sections §13-§17:
+ *    - §13: Golden selected card state
+ *    - §14: Anchor card (last clicked)
+ *    - §15: Bulk-lock button (unified transfer)
+ *    - §16: Selection info banner
+ *    - §17: Perf-mode overrides
+ *
+ * ═══════════════════════════════════════════════════════════════════ */
+
+/* ============================================================
+   1. HOST
+   ============================================================ */
+:host {
+  display: block;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 2147483647;
+  pointer-events: none;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  color: #ffffff;
+  color-scheme: dark;
+  box-sizing: border-box;
+}
+
+:host *,
+:host *::before,
+:host *::after {
+  box-sizing: border-box;
+}
+
+/* ============================================================
+   2. CONTAINER
+   ============================================================ */
+.win7-aero {
+  width: 100%;
+  max-width: 960px;
+  margin: 0 auto;
+  min-height: 320px;
+  background: rgba(20, 15, 50, 0.15);
+  background-image: linear-gradient(
+    135deg,
+    rgba(80, 40, 140, 0.28) 0%,
+    rgba(45, 65, 160, 0.22) 40%,
+    rgba(55, 45, 145, 0.18) 100%
+  );
+  backdrop-filter: blur(30px) saturate(200%) brightness(1.05);
+  -webkit-backdrop-filter: blur(30px) saturate(200%) brightness(1.05);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-bottom: none;
+  box-shadow:
+    0 10px 40px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  border-radius: 20px 20px 0 0;
+  color: #ffffff;
+  overflow: visible;
+  display: flex;
+  flex-direction: column;
+  max-height: 50vh;
+  position: relative;
+  pointer-events: auto;
+
+  /* ═══ will-change: ΚΡΑΤΑΜΕ (1 element, slide animation) ═══ */
+  will-change: transform;
+}
+
+.win7-aero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.22) 0%,
+    rgba(255, 255, 255, 0.06) 35%,
+    rgba(255, 255, 255, 0) 50%,
+    rgba(255, 255, 255, 0.03) 100%
+  );
+  border-radius: inherit;
+  z-index: 2;
+}
+
+.win7-aero > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* ============================================================
+   3. OVERLAY INNER
+   ============================================================ */
+.overlay-inner {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+
+/* ============================================================
+   4. LAYER 1 — Toolbar
+   ============================================================ */
+.version-tag {
+  position: absolute;
+  top: 6px;
+  left: 14px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #000000;
+  text-shadow: 0 1px 3px rgba(255, 255, 255, 0.5);
+  pointer-events: none;
+  z-index: 10;
+  user-select: none;
+}
+
+.signature-img {
+  position: absolute;
+  top: 4px;
+  left: 52px;
+  height: 30px;
+  width: auto;
+  pointer-events: none;
+  z-index: 10;
+  user-select: none;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.4));
+}
+
+.layer1 {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 12px;
+  background: transparent;
+  position: relative;
+  min-height: 42px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.close-btn,
+.space-btn,
+.home-btn,
+.back-btn,
+.add-icon,
+.pin-btn,
+.menu-btn {
+  cursor: pointer;
+  user-select: none;
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  transition: all 0.2s;
+  color: #ffffff;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.9);
+}
+
+.close-btn:hover,
+.space-btn:hover,
+.home-btn:hover,
+.back-btn:hover,
+.add-icon:hover,
+.menu-btn:hover {
+  background: rgba(255, 255, 255, 0.45);
+  border-color: white;
+  box-shadow: 0 4px 14px rgba(255, 255, 255, 0.4);
+}
+
+.close-btn {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 20px;
+  font-weight: bold;
+}
+
+.close-btn:hover {
+  background: rgba(255, 70, 70, 0.8);
+  border-color: white;
+  box-shadow: 0 4px 14px rgba(255, 70, 70, 0.7);
+}
+
+.space-btn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 18px;
+}
+
+.space-btn img {
+  width: 20px;
+  height: 20px;
+  pointer-events: none;
+}
+
+.space-btn:hover {
+  background: rgba(200, 200, 255, 0.5);
+  border-color: white;
+  box-shadow: 0 4px 14px rgba(200, 200, 255, 0.7);
+}
+
+.space-btn.lock { right: 88px; }
+.space-btn.switch { right: 126px; }
+
+.add-icon {
+  font-size: 22px;
+  width: 38px;
+  height: 38px;
+  margin: 0 8px;
+}
+
+.add-icon img {
+  width: 22px;
+  height: 22px;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
+}
+
+.pin-btn {
+  position: absolute;
+  right: 164px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 18px;
+}
+
+.pin-btn img {
+  width: 24px;
+  height: 24px;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
+  transition: all 0.2s;
+}
+
+.pin-btn.active {
+  background: rgba(255, 215, 0, 0.4);
+  border-color: rgba(255, 215, 0, 0.9);
+  box-shadow:
+    0 0 15px rgba(255, 215, 0, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+.pin-btn.active img {
+  filter: drop-shadow(0 0 4px gold);
+}
+
+.pin-btn:hover {
+  background: rgba(255, 215, 0, 0.5);
+  border-color: white;
+  box-shadow: 0 4px 14px rgba(255, 215, 0, 0.7);
+}
+
+.pin-label {
+  position: absolute;
+  right: 204px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 13px;
+  font-weight: 600;
+  color: #ffffff;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.9);
+  white-space: nowrap;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: none;
+  user-select: none;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  pointer-events: auto;
+  padding: 2px 8px;
+  border-radius: 10px;
+  transition: all 0.2s;
+}
+
+.pin-label:hover {
+  background: rgba(255, 215, 0, 0.35);
+  box-shadow: 0 0 12px rgba(255, 215, 0, 0.6);
+}
+
+.pin-label.visible { display: flex; }
+
+.pin-label-icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.4));
+}
+
+.menu-btn {
+  position: absolute;
+  right: 50px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 18px;
+}
+
+/* ============================================================
+   5. TOOLTIP
+   ============================================================ */
+.cbf-tooltip {
+  position: absolute;
+  background: rgba(10, 10, 30, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: #fff;
+  padding: 6px 12px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 100;
+  opacity: 0;
+  transform: translateY(-4px);
+  transition: opacity 0.2s, transform 0.2s;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.cbf-tooltip.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ============================================================
+   6. LAYER 2 — Breadcrumb
+   ============================================================ */
+.layer2 {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: rgba(0, 0, 0, 0.15);
+  backdrop-filter: blur(10px) saturate(150%);
+  -webkit-backdrop-filter: blur(10px) saturate(150%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+  transition: background 0.3s ease, backdrop-filter 0.3s ease;
+}
+
+.layer2.encrypted-layer2 {
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(10px) saturate(120%) brightness(0.7);
+  -webkit-backdrop-filter: blur(10px) saturate(120%) brightness(0.7);
+}
+
+.home-btn,
+.back-btn {
+  cursor: pointer;
+  font-size: 20px;
+  user-select: none;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  transition: all 0.2s;
+  color: #ffffff;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.9);
+}
+
+.home-btn img,
+.back-btn img {
+  width: 20px;
+  height: 20px;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
+}
+
+.home-btn:hover,
+.back-btn:hover {
+  background: rgba(255, 255, 255, 0.45);
+  border-color: white;
+  box-shadow: 0 4px 14px rgba(255, 255, 255, 0.4);
+}
+
+.breadcrumb {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  overflow-x: auto;
+  white-space: nowrap;
+  min-width: 0;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.breadcrumb::-webkit-scrollbar { display: none; }
+
+.crumb {
+  cursor: pointer;
+  color: rgba(255, 255, 255, 0.85);
+  font-weight: 600;
+  font-size: 16px;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.8);
+  padding: 2px 6px;
+  border-radius: 12px;
+  transition: all 0.2s;
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+.crumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+  color: #ffffff;
+  text-shadow: 0 0 8px rgba(255, 255, 255, 0.6);
+}
+
+.crumb.current {
+  cursor: default;
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.15);
+  font-weight: 700;
+  pointer-events: none;
+}
+
+.crumb.drag-hover {
+  background: rgba(255, 215, 0, 0.45) !important;
+  backdrop-filter: blur(8px) saturate(180%) brightness(1.3) !important;
+  -webkit-backdrop-filter: blur(8px) saturate(180%) brightness(1.3) !important;
+  border: 1px solid rgba(255, 255, 255, 0.7) !important;
+  box-shadow:
+    0 0 16px rgba(255, 215, 0, 0.7),
+    0 0 32px rgba(255, 255, 255, 0.5) !important;
+  color: #ffffff !important;
+  text-shadow: 0 0 6px rgba(0, 0, 0, 0.8) !important;
+}
+
+.crumb.folder-drop-target {
+  background: rgba(255, 215, 0, 0.5) !important;
+  border: 1px solid #ffd700 !important;
+  box-shadow: 0 0 12px gold !important;
+  color: #000 !important;
+}
+
+.separator {
+  color: rgba(255, 255, 255, 0.6);
+  font-weight: 300;
+  font-size: 18px;
+  margin: 0 2px;
+  user-select: none;
+}
+
+#cbf-space-indicator {
+  width: 20px;
+  height: 20px;
+  margin-left: auto;
+  margin-right: 4px;
+  flex-shrink: 0;
+  pointer-events: none;
+  user-select: none;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
+  display: none;
+}
+
+#cbf-space-label {
+  display: none;
+  font-size: 10px;
+  font-weight: 600;
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+  user-select: none;
+  pointer-events: none;
+  white-space: nowrap;
+  margin-right: 4px;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   SEARCH WRAPPER — V12.4 POSITION
+   ═══════════════════════════════════════════════════════════════ */
+.search-wrapper {
+  position: absolute;
+  left: 120px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  pointer-events: auto;
+  z-index: 5;
+}
+
+.search-bar {
+  width: 145px;
+  height: 28px;
+  background: rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(12px) saturate(180%);
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 14px;
+  padding: 0 28px 0 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #000;
+  caret-color: #000;
+  outline: none;
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  transition: all 0.2s;
+}
+
+.search-bar::placeholder {
+  color: rgba(0, 0, 0, 0.45);
+  text-shadow: none;
+  font-weight: 500;
+}
+
+.search-bar:focus {
+  background: rgba(255, 255, 255, 0.28);
+  border-color: rgba(255, 255, 255, 0.6);
+  box-shadow:
+    0 4px 14px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+
+.search-clear {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: bold;
+  color: #000;
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 50%;
+  line-height: 1;
+  transition: background 0.2s;
+}
+
+.search-clear:hover {
+  background: rgba(0, 0, 0, 0.25);
+}
+
+/* ============================================================
+   7. LAYER 3 — Carousel (v12.4 sizes)
+   ============================================================ */
+.layer3-wrapper {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+  overflow: visible;
+  min-height: 0;
+}
+
+.layer3 {
+  flex: 1;
+  min-width: 0;
+  overflow-x: scroll;
+  overflow-y: visible;
+  height: 175px;
+  min-height: 165px;
+  padding: 20px 20px;
+  display: flex;
+  gap: 0;
+  align-items: center;
+  scroll-padding: 0 20px;
+  scrollbar-width: auto;
+  scrollbar-color: rgba(80, 40, 140, 1) rgba(255, 255, 255, 0.5);
+}
+
+.layer3::-webkit-scrollbar { height: 12px; }
+.layer3::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.4);
+  border-radius: 6px;
+  margin: 0 5px;
+}
+.layer3::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, rgba(80, 40, 140, 1), rgba(45, 65, 160, 1));
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+}
+
+.scroll-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 36px;
+  height: 36px;
+  z-index: 2147483645;
+  cursor: pointer;
+  font-size: 22px;
+  font-weight: bold;
+  color: #ffffff;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.8);
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow:
+    0 2px 10px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  transition: all 0.2s;
+  opacity: 0.85;
+  user-select: none;
+}
+
+.scroll-arrow:hover {
+  background: rgba(255, 255, 255, 0.4);
+  border-color: white;
+  box-shadow: 0 4px 14px rgba(255, 255, 255, 0.5);
+  opacity: 1;
+}
+
+.scroll-arrow.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.scroll-arrow.left { left: 4px; }
+.scroll-arrow.right { right: 4px; }
+
+/* ============================================================
+   8. CARDS (v12.4 sizes — 140-175px)
+   ============================================================ */
+.card {
+  flex-shrink: 0;
+  width: clamp(140px, 20vw, 175px);
+  min-height: 125px;
+  max-height: 145px;
+  margin-left: clamp(-30px, -4vw, -25px);
+  scroll-snap-align: start;
+  background: var(--card-color, rgba(255, 255, 255, 0.25));
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 2px solid transparent;
+  border-radius: 18px;
+  padding: 12px 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+  transition: all 0.3s cubic-bezier(0.2, 0.9, 0.4, 1);
+  box-shadow:
+    0 8px 0 -3px rgba(0, 0, 0, 0.08),
+    0 6px 12px rgba(0, 0, 0, 0.1);
+  z-index: 1;
+  overflow: hidden;
+  /*
+   * 🟡 PERFORMANCE FIX:
+   *   ΑΦΑΙΡΕΘΗΚΕ:
+   *     - will-change: transform, filter;
+   *     - contain: layout style;
+   */
+}
+
+.card:first-child { margin-left: 0; }
+
+/* ═══════════════════════════════════════════════════════════════
+   FAVICON BACKGROUND EFFECT (v12.4 parity)
+   ═══════════════════════════════════════════════════════════════ */
+.card::before {
+  content: '';
+  position: absolute;
+  top: -10px;
+  left: -10px;
+  right: -10px;
+  bottom: -10px;
+  background-image: var(--favicon-bg, none);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  filter: blur(8px) brightness(1.2);
+  opacity: 0.6;
+  z-index: 0;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.card > * {
+  position: relative;
+  z-index: 1;
+}
+
+.card:hover {
+  transform: translateY(-12px) scale(1.03);
+  border-color: var(--card-color, #0060df);
+  box-shadow:
+    0 0 24px var(--card-color, rgba(0, 96, 223, 0.7)),
+    0 20px 30px rgba(0, 0, 0, 0.2);
+  z-index: 1000 !important;
+}
+
+.card.card-center {
+  border: 4px solid rgba(255, 255, 255, 0.95);
+  box-shadow:
+    0 0 35px rgba(255, 255, 255, 0.9),
+    0 0 70px rgba(255, 255, 255, 0.5),
+    0 12px 28px rgba(0, 0, 0, 0.35);
+  transform: translateY(-14px) scale(1.08);
+  z-index: 101;
+  filter: brightness(1.15);
+}
+
+.card.folder-drop-target {
+  border: 3px solid rgba(100, 200, 255, 0.9) !important;
+  box-shadow:
+    0 0 20px rgba(100, 200, 255, 0.7),
+    inset 0 0 12px rgba(255, 255, 255, 0.4) !important;
+  transform: scale(1.02);
+  z-index: 102;
+}
+
+.card.merge-target {
+  border: 3px solid rgba(255, 215, 0, 0.9) !important;
+  box-shadow:
+    0 0 24px rgba(255, 215, 0, 0.7),
+    inset 0 0 16px rgba(255, 255, 255, 0.5) !important;
+}
+
+.card.arrow-near {
+  border: 2px solid #ffd700 !important;
+  box-shadow:
+    0 0 15px #ffd700,
+    0 0 35px rgba(255, 215, 0, 0.6) !important;
+  z-index: 9999 !important;
+  position: relative !important;
+}
+
+.card.selected {
+  border: 2px solid #ffd700 !important;
+  box-shadow:
+    0 0 15px #ffd700,
+    0 0 30px rgba(255, 215, 0, 0.7) !important;
+  z-index: 200 !important;
+}
+
+/* --- Card icon (v12.4 sizes) --- */
+.card-icon {
+  width: clamp(48px, 6vw, 58px);
+  height: clamp(48px, 6vw, 58px);
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  z-index: 2;
+}
+
+.card-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* --- Card avatar (v12.4 size) --- */
+.card-avatar {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  font-weight: bold;
+  color: white;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+/* --- Card title (v12.4 size) --- */
+.card-title {
+  font-size: clamp(11px, 1.8vw, 13px);
+  font-weight: 600;
+  line-height: 1.3;
+  max-height: 2.6em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #111;
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.9);
+  position: relative;
+  z-index: 2;
+}
+
+/* --- Card delete (X) --- */
+.card-delete {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 22px;
+  height: 22px;
+  background: rgba(255, 255, 255, 0.8);
+  border: none;
+  border-radius: 50%;
+  color: #c00;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 5;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  transition: all 0.2s ease;
+}
+
+.card:hover .card-delete,
+.card.card-center .card-delete { display: flex; }
+
+.card-delete:hover {
+  background: #ff4d4d;
+  color: white;
+  transform: scale(1.15);
+}
+
+/* --- Card lock --- */
+.card-lock {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  width: 22px;
+  height: 22px;
+  background: rgba(255, 255, 255, 0.8);
+  border: none;
+  border-radius: 50%;
+  color: #333;
+  font-size: 14px;
+  cursor: pointer;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 5;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  transition: all 0.2s ease;
+}
+
+.card:hover .card-lock,
+.card.card-center .card-lock { display: flex; }
+
+.card-lock img {
+  width: 16px;
+  height: 16px;
+  pointer-events: none;
+}
+
+.card-lock:hover {
+  background: #ffd700;
+  color: #000;
+  transform: scale(1.15);
+}
+
+/* --- Empty / hint messages --- */
+.empty-message {
+  padding: 40px;
+  text-align: center;
+  color: #ffffff;
+  font-weight: 600;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.8);
+  font-size: 15px;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.lock-hint {
+  padding: 60px 20px;
+  text-align: center;
+  color: #fff;
+  font-weight: 600;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.8);
+  font-size: 15px;
+  flex: 1;
+  line-height: 1.6;
+}
+
+/* ============================================================
+   9. DRAG & DROP (v12.4 placeholder size)
+   ============================================================ */
+.drag-placeholder {
+  flex-shrink: 0;
+  width: 3px;
+  height: 110px;
+  background: rgba(255, 255, 255, 0.8);
+  margin: 0 4px;
+  border-radius: 2px;
+  display: none;
+  pointer-events: none;
+}
+
+.layer3.folder-drop-target {
+  outline: 2px solid gold !important;
+  background-color: rgba(255, 215, 0, 0.1) !important;
+}
+
+.breadcrumb.drag-active {
+  background: rgba(255, 255, 255, 0.35) !important;
+  backdrop-filter: blur(30px) saturate(220%) brightness(1.4) !important;
+  -webkit-backdrop-filter: blur(30px) saturate(220%) brightness(1.4) !important;
+  border: 2px solid rgba(255, 255, 255, 0.9) !important;
+  border-radius: 14px !important;
+  box-shadow:
+    0 0 50px rgba(255, 255, 255, 0.8),
+    0 0 80px rgba(255, 215, 0, 0.6),
+    inset 0 0 25px rgba(255, 255, 255, 0.5) !important;
+  padding: 20px 16px !important;
+  min-height: 60px !important;
+  transition: all 0.2s ease !important;
+  animation: breadcrumb-pulse 0.8s infinite alternate !important;
+}
+
+.breadcrumb.drag-no-drop {
+  background: rgba(255, 0, 0, 0.2) !important;
+  border: 2px dashed rgba(255, 80, 80, 0.8) !important;
+  box-shadow:
+    0 0 30px rgba(255, 0, 0, 0.4),
+    inset 0 0 15px rgba(255, 0, 0, 0.2) !important;
+  animation: none !important;
+}
+
+@keyframes breadcrumb-pulse {
+  from {
+    box-shadow:
+      0 0 50px rgba(255, 255, 255, 0.8),
+      0 0 80px rgba(255, 215, 0, 0.6),
+      inset 0 0 25px rgba(255, 255, 255, 0.5);
+  }
+  to {
+    box-shadow:
+      0 0 70px rgba(255, 255, 255, 1),
+      0 0 100px rgba(255, 215, 0, 0.9),
+      inset 0 0 35px rgba(255, 255, 255, 0.7);
+  }
+}
+
+.drag-scroll-arrow.near {
+  background: rgba(255, 215, 0, 0.45) !important;
+  border: 2px solid #ffd700 !important;
+  box-shadow:
+    0 0 20px #ffd700,
+    0 0 40px #ffd700,
+    0 0 80px rgba(255, 255, 255, 0.8) !important;
+  transform: scale(1.20) !important;
+}
+
+.drag-scroll-arrow.active {
+  background: #ffd700 !important;
+  box-shadow:
+    0 0 40px #ffd700,
+    0 0 80px #ffd700,
+    0 0 120px #ffffff !important;
+  transform: scale(1.35) !important;
+}
+
+/* ============================================================
+   10. MODALS
+   ============================================================ */
+.cbf-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 2147483647;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  pointer-events: auto;
+}
+
+.cbf-modal {
+  background: rgba(30, 20, 60, 0.7);
+  backdrop-filter: blur(20px) saturate(200%);
+  -webkit-backdrop-filter: blur(20px) saturate(200%);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 16px;
+  padding: 20px;
+  min-width: 280px;
+  max-width: 360px;
+  width: 90%;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.cbf-modal h3 {
+  margin: 0 0 12px 0;
+  font-size: 16px;
+  font-weight: 600;
+  text-align: center;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
+}
+
+.cbf-modal p {
+  margin: 0 0 16px 0;
+  font-size: 14px;
+  text-align: center;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MODAL INPUTS
+   ═══════════════════════════════════════════════════════════════ */
+.cbf-modal input[type="password"],
+.cbf-modal input[type="text"],
+.cbf-modal input[type="url"] {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+  font-size: 16px;
+  outline: none;
+  box-sizing: border-box;
+  margin-bottom: 10px;
+}
+
+.cbf-modal input::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.cbf-modal-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.cbf-modal-btn {
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.3);
+  color: #fff;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+  transition: all 0.2s;
+  margin: 0 4px;
+}
+
+.cbf-modal-btn:hover {
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.cbf-modal-btn.primary {
+  background: #3b82f6;
+  border-color: #3b82f6;
+}
+
+.cbf-modal-btn.primary:hover {
+  background: #2563eb;
+}
+
+.cbf-modal-btn.danger {
+  background: rgba(255, 107, 107, 0.4);
+  border-color: rgba(255, 107, 107, 0.8);
+}
+
+.cbf-modal-btn.danger:hover {
+  background: rgba(255, 107, 107, 0.6);
+}
+
+.cbf-modal-error {
+  color: #ff6b6b;
+  font-size: 13px;
+  margin-bottom: 8px;
+  text-align: center;
+  display: none;
+}
+
+/* ============================================================
+   11. PERFORMANCE MODE
+   ============================================================ */
+:host(.perf-mode) .card {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  background: linear-gradient(
+    rgba(255, 255, 255, 0.4),
+    rgba(255, 255, 255, 0.4)
+  ), var(--card-color-solid, hsl(0, 0%, 90%));
+  border: 1px solid rgba(0, 0, 0, 0.1) !important;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15) !important;
+}
+
+:host(.perf-mode) .card::before {
+  display: none !important;
+}
+
+:host(.perf-mode) .card-title {
+  color: #fff;
+  background: rgba(0, 0, 0, 0.5);
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 8px;
+  margin-top: 4px;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+}
+
+:host(.perf-mode) .card-icon img {
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 8px;
+}
+
+:host(.perf-mode) .card:hover {
+  transform: translateY(-6px) scale(1.02) !important;
+  box-shadow: 0 0 14px rgba(0, 0, 0, 0.3) !important;
+  border-color: rgba(255, 255, 255, 0.5) !important;
+}
+
+:host(.perf-mode) .card.card-center {
+  transform: translateY(-8px) scale(1.05) !important;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.4) !important;
+  border: 2px solid rgba(255, 255, 255, 0.8) !important;
+  filter: brightness(1.05) !important;
+}
+
+:host(.perf-mode) .card.merge-target {
+  border: 3px solid #ffd700 !important;
+  box-shadow: 0 0 20px rgba(255, 215, 0, 0.8) !important;
+}
+
+:host(.perf-mode) .card.folder-drop-target {
+  border: 3px solid rgba(100, 200, 255, 0.9) !important;
+  box-shadow: 0 0 20px rgba(100, 200, 255, 0.8) !important;
+}
+
+:host(.perf-mode) .card.arrow-near {
+  border: 2px solid #ffd700 !important;
+  box-shadow:
+    0 0 15px #ffd700,
+    0 0 35px rgba(255, 215, 0, 0.6) !important;
+}
+
+:host(.perf-mode) .card.selected {
+  border: 2px solid #ffd700 !important;
+  box-shadow:
+    0 0 15px #ffd700,
+    0 0 30px rgba(255, 215, 0, 0.7) !important;
+}
+
+:host(.perf-mode) .layer3 {
+  scrollbar-width: thin;
+}
+
+:host(.perf-mode) .win7-aero {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+:host(.perf-mode) .layer2 {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  background: rgba(0, 0, 0, 0.25) !important;
+}
+
+/* ============================================================
+   12. UTILITY
+   ============================================================ */
+.hidden {
+  display: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card,
+  .win7-aero,
+  .scroll-arrow,
+  .crumb {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   13. MULTI-SELECTION — SELECTED CARD STATE
+   ═══════════════════════════════════════════════════════════════════ */
+
+.card.card-selected {
+  border: 3px solid #ffd700 !important;
+  box-shadow:
+    0 0 22px rgba(255, 215, 0, 0.85),
+    0 0 44px rgba(255, 215, 0, 0.45),
+    inset 0 0 14px rgba(255, 215, 0, 0.25) !important;
+  transform: translateY(-6px) scale(1.02);
+  z-index: 500 !important;
+  background:
+    linear-gradient(
+      135deg,
+      rgba(255, 215, 0, 0.28),
+      rgba(255, 215, 0, 0.08)
+    ),
+    var(--card-color, rgba(255, 255, 255, 0.25)) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   14. MULTI-SELECTION — ANCHOR CARD STATE
+   ═══════════════════════════════════════════════════════════════════ */
+
+.card.card-selected.card-anchor {
+  border-style: dashed !important;
+  box-shadow:
+    0 0 22px rgba(255, 215, 0, 1),
+    0 0 44px rgba(255, 215, 0, 0.6),
+    inset 0 0 18px rgba(255, 215, 0, 0.35) !important;
+}
+
+/* ═══ Hover πάνω από selected card — subtle lift ═══ */
+.card.card-selected:hover {
+  transform: translateY(-10px) scale(1.05);
+  box-shadow:
+    0 0 30px rgba(255, 215, 0, 1),
+    0 0 60px rgba(255, 215, 0, 0.6),
+    0 20px 30px rgba(0, 0, 0, 0.25) !important;
+  z-index: 1000 !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   15. MULTI-SELECTION — BULK-LOCK BUTTON
+   ═══════════════════════════════════════════════════════════════════ */
+
+.bulk-lock {
+  position: absolute;
+  right: 208px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: none;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 20px;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 215, 0, 0.95),
+    rgba(255, 180, 0, 0.9)
+  );
+  border: 2px solid #ffd700;
+  box-shadow:
+    0 0 20px rgba(255, 215, 0, 0.8),
+    0 4px 12px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  user-select: none;
+  font-weight: 700;
+  font-size: 13px;
+  color: #000;
+  text-shadow: 0 1px 1px rgba(255, 255, 255, 0.6);
+  transition: all 0.25s ease;
+  z-index: 100;
+}
+
+.bulk-lock.visible {
+  display: flex;
+  animation: bulk-lock-appear 0.3s ease-out;
+}
+
+.bulk-lock:hover {
+  transform: translateY(-50%) scale(1.06);
+  box-shadow:
+    0 0 30px rgba(255, 215, 0, 1),
+    0 0 50px rgba(255, 215, 0, 0.6),
+    0 6px 16px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+.bulk-lock:active {
+  transform: translateY(-50%) scale(0.98);
+}
+
+.bulk-lock img {
+  width: 18px;
+  height: 18px;
+  pointer-events: none;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
+}
+
+.bulk-lock .bulk-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  background: rgba(0, 0, 0, 0.75);
+  color: #ffd700;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 800;
+  text-shadow: none;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   16. MULTI-SELECTION — INFO BANNER
+   ═══════════════════════════════════════════════════════════════════ */
+
+.selection-info {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: none;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 14px;
+  background: rgba(255, 215, 0, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  border-radius: 16px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #000;
+  pointer-events: none;
+  box-shadow:
+    0 0 16px rgba(255, 215, 0, 0.7),
+    0 4px 12px rgba(0, 0, 0, 0.3);
+  z-index: 90;
+  white-space: nowrap;
+}
+
+.selection-info.visible {
+  display: flex;
+}
+
+.selection-info .hint {
+  font-size: 10px;
+  font-weight: 500;
+  opacity: 0.75;
+  font-style: italic;
+  white-space: nowrap;
+}
+
+/* ═══ Animation: bulk-lock appear ═══ */
+@keyframes bulk-lock-appear {
+  from {
+    opacity: 0;
+    transform: translateY(-50%) scale(0.7);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(-50%) scale(1);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   17. MULTI-SELECTION — PERFORMANCE MODE OVERRIDES
+   ═══════════════════════════════════════════════════════════════════ */
+
+:host(.perf-mode) .card.card-selected {
+  border: 3px solid #ffd700 !important;
+  box-shadow: 0 0 15px rgba(255, 215, 0, 0.9) !important;
+  transform: translateY(-4px) scale(1.01);
+  background: var(--card-color-solid, hsl(45, 70%, 75%)) !important;
+}
+
+:host(.perf-mode) .card.card-selected.card-anchor {
+  border-style: dashed !important;
+  box-shadow: 0 0 20px rgba(255, 215, 0, 1) !important;
+}
+
+:host(.perf-mode) .card.card-selected:hover {
+  transform: translateY(-6px) scale(1.02);
+  box-shadow: 0 0 20px rgba(255, 215, 0, 1) !important;
+}
+
+:host(.perf-mode) .bulk-lock {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+:host(.perf-mode) .bulk-lock:hover {
+  box-shadow:
+    0 0 16px rgba(255, 215, 0, 0.9),
+    0 4px 10px rgba(0, 0, 0, 0.5);
+}
+
+:host(.perf-mode) .selection-info {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   18. ⭐ V12E: MAIN MENU POPUP (☰)
+   ═══════════════════════════════════════════════════════════════════
+   Τα κύρια styles είναι inline από το main-menu.js (dynamic positioning).
+   Εδώ προσθέτουμε:
+     - Custom scrollbar (consistent με .layer3)
+     - Fallback base styles (αν λείπουν inline)
+     - ⭐ V12E.E: pointer-events: auto (CRITICAL — clickability)
+   ═══════════════════════════════════════════════════════════════════ */
+
+.cbf-main-menu-popup {
+  position: fixed;
+  background: rgba(20, 15, 50, 0.18);
+  background-image: linear-gradient(
+    135deg,
+    rgba(80, 40, 140, 0.28) 0%,
+    rgba(45, 65, 160, 0.22) 40%,
+    rgba(55, 45, 145, 0.18) 100%
+  );
+  backdrop-filter: blur(25px) saturate(200%) brightness(1.05);
+  -webkit-backdrop-filter: blur(25px) saturate(200%) brightness(1.05);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 14px;
+  padding: 6px 0;
+  z-index: 2147483647;
+  display: none;
+  width: 280px;
+  max-width: 90vw;
+  max-height: 320px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  box-shadow:
+    0 12px 32px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  box-sizing: border-box;
+
+  /* ═══ Custom scrollbar (matches .layer3) ═══ */
+  scrollbar-width: auto;
+  scrollbar-color: rgba(80, 40, 140, 1) rgba(255, 255, 255, 0.5);
+
+  /* ═══════════════════════════════════════════════════════════════
+     ⭐ V12E.E-01 CRITICAL FIX:
+     Το :host έχει pointer-events:none (content-overlay.js inline).
+     Τα popup menus mount-άρονται ΑΠΕΥΘΕΙΑΣ στο shadowRoot (ΟΧΙ
+     μέσα στο .win7-aero που έχει pointer-events:auto).
+     Χωρίς αυτό → τα menu items ΔΕΝ είναι clickable.
+     ═══════════════════════════════════════════════════════════════ */
+  pointer-events: auto;
+}
+
+.cbf-main-menu-popup::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.cbf-main-menu-popup::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.4);
+  border-radius: 5px;
+  margin: 2px 0;
+}
+
+.cbf-main-menu-popup::-webkit-scrollbar-thumb {
+  background: linear-gradient(
+    135deg,
+    rgba(80, 40, 140, 1),
+    rgba(45, 65, 160, 1)
+  );
+  border-radius: 5px;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   19. ⭐ V12E: CONTEXT MENU POPUP (right-click)
+   ═══════════════════════════════════════════════════════════════════
+   Τα κύρια styles είναι inline από το context-menu.js (dynamic positioning).
+   Εδώ προσθέτουμε:
+     - Custom scrollbar (consistent με .layer3)
+     - Fallback base styles
+     - ⭐ V12E.E: pointer-events: auto (CRITICAL — clickability)
+   ═══════════════════════════════════════════════════════════════════ */
+
+.cbf-context-menu-popup {
+  position: fixed;
+  background: rgba(20, 15, 50, 0.18);
+  background-image: linear-gradient(
+    135deg,
+    rgba(80, 40, 140, 0.28) 0%,
+    rgba(45, 65, 160, 0.22) 40%,
+    rgba(55, 45, 145, 0.18) 100%
+  );
+  backdrop-filter: blur(25px) saturate(200%) brightness(1.05);
+  -webkit-backdrop-filter: blur(25px) saturate(200%) brightness(1.05);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 12px;
+  padding: 5px 0;
+  z-index: 2147483647;
+  display: none;
+  min-width: 220px;
+  max-width: 90vw;
+  max-height: 300px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  box-shadow:
+    0 10px 28px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  box-sizing: border-box;
+
+  /* ═══ Custom scrollbar ═══ */
+  scrollbar-width: auto;
+  scrollbar-color: rgba(80, 40, 140, 1) rgba(255, 255, 255, 0.5);
+
+  /* ═══════════════════════════════════════════════════════════════
+     ⭐ V12E.E-01 CRITICAL FIX:
+     Ίδιο rationale με .cbf-main-menu-popup.
+     Χωρίς αυτό → τα context menu items ΔΕΝ είναι clickable.
+     ═══════════════════════════════════════════════════════════════ */
+  pointer-events: auto;
+}
+
+.cbf-context-menu-popup::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.cbf-context-menu-popup::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.4);
+  border-radius: 5px;
+  margin: 2px 0;
+}
+
+.cbf-context-menu-popup::-webkit-scrollbar-thumb {
+  background: linear-gradient(
+    135deg,
+    rgba(80, 40, 140, 1),
+    rgba(45, 65, 160, 1)
+  );
+  border-radius: 5px;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   20. ⭐ V12E: MENU ITEMS — Common styles
+   ═══════════════════════════════════════════════════════════════════
+   Fallback styles για τα menu items. Τα inline styles από τα features
+   υπερισχύουν όπου εφαρμόζονται.
+   ═══════════════════════════════════════════════════════════════════ */
+
+.cbf-menu-item,
+.cbf-context-menu-item {
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #ffffff;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+  border-radius: 6px;
+  margin: 2px 6px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.4;
+  user-select: none;
+  /* ═══ V12E.E-01: explicit auto (defense-in-depth) ═══ */
+  pointer-events: auto;
+}
+
+.cbf-menu-item:hover,
+.cbf-context-menu-item:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* ═══ Dangerous items (π.χ. plain export) ═══ */
+.cbf-menu-item[data-dangerous="true"]:hover {
+  background: rgba(255, 107, 107, 0.25);
+}
+
+/* ═══ Separators ═══ */
+.cbf-menu-separator {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.15);
+  margin: 4px 12px;
+}
+
+/* ═══ Icons μέσα στα menu items ═══ */
+.cbf-menu-item img,
+.cbf-context-menu-item img {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  pointer-events: none;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   21. ⭐ V12E: PERFORMANCE MODE — Menu overrides
+   ═══════════════════════════════════════════════════════════════════ */
+
+:host(.perf-mode) .cbf-main-menu-popup,
+:host(.perf-mode) .cbf-context-menu-popup {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  background: rgba(30, 20, 60, 0.95) !important;
+  background-image: none !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   22. ⭐ V12E.E-01 — CRITICAL FIX SUMMARY (defense-in-depth)
+   ═══════════════════════════════════════════════════════════════════
+   Επαναλαμβάνουμε το pointer-events: auto !important στο τέλος,
+   ώστε:
+     1. Να υπερισχύει οποιουδήποτε inline style
+     2. Να είναι εμφανές σε code review
+     3. Να μην σπάει ακόμα κι αν κάποιος αφαιρέσει το rule από
+        το §18/§19 κατά λάθος
+   ═══════════════════════════════════════════════════════════════════ */
+
+.cbf-main-menu-popup,
+.cbf-context-menu-popup {
+  pointer-events: auto !important;
+}
+
+.cbf-menu-item,
+.cbf-context-menu-item {
+  pointer-events: auto !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   23. ⭐ v12.2 GPU-01: LOW-END MODE (adaptive)
+   ═══════════════════════════════════════════════════════════════════
+   Ενεργοποιείται αυτόματα από το content-overlay.js όταν:
+     navigator.hardwareConcurrency ≤ 2  OR  navigator.deviceMemory ≤ 2
+
+   Τι απενεργοποιείται:
+     • Όλα τα backdrop-filter (blur) σε container/layer2/cards/menus
+     • Το .card::before favicon blur layer
+     • Το tooltip blur
+
+   Τι αντικαθίσταται:
+     • Solid rgba backgrounds με σκούρο tone (πιο readable)
+     • Απλοποιημένα box-shadows (λιγότερα layers)
+     • Ίδιες διαστάσεις, ίδιο layout, ίδια χρώματα accent
+
+   ΔΕΝ επηρεάζει:
+     • Λειτουργικότητα (κλικ, hover, drag, menus, selection)
+     • v12E.E fixes (pointer-events)
+     • Χρώματα state (gold selection, danger, folder targets)
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ─── Container ─── */
+:host(.low-end) .win7-aero {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  background: rgba(20, 15, 50, 0.92) !important;
+  background-image: none !important;
+}
+
+/* ─── Layer 2 (breadcrumb) ─── */
+:host(.low-end) .layer2 {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  background: rgba(0, 0, 0, 0.35) !important;
+}
+
+:host(.low-end) .layer2.encrypted-layer2 {
+  background: rgba(0, 0, 0, 0.55) !important;
+}
+
+/* ─── Breadcrumb chips ─── */
+:host(.low-end) .crumb {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+:host(.low-end) .crumb.drag-hover {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  background: rgba(255, 215, 0, 0.55) !important;
+}
+
+/* ─── Search bar ─── */
+:host(.low-end) .search-bar {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  background: rgba(255, 255, 255, 0.22);
+}
+
+/* ─── Cards ─── */
+:host(.low-end) .card {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  /* Fallback gradient (ίδιο look με backdrop blur off) */
+  background:
+    linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.15),
+      rgba(255, 255, 255, 0.05)
+    ),
+    var(--card-color-solid, hsla(0, 0%, 70%, 0.35)) !important;
+}
+
+/* ─── Card::before favicon blur layer — DISABLED ─── */
+:host(.low-end) .card::before {
+  display: none !important;
+}
+
+/* ─── Card icons — απλοποιημένα ─── */
+:host(.low-end) .card-icon img {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  background: rgba(255, 255, 255, 0.85);
+}
+
+/* ─── Card hover — λιγότερα shadow layers ─── */
+:host(.low-end) .card:hover {
+  transform: translateY(-8px) scale(1.02) !important;
+  box-shadow:
+    0 0 14px var(--card-color, rgba(0, 96, 223, 0.5)),
+    0 10px 18px rgba(0, 0, 0, 0.25) !important;
+}
+
+/* ─── Card center (selected by keyboard) ─── */
+:host(.low-end) .card.card-center {
+  filter: none !important;
+  transform: translateY(-10px) scale(1.04) !important;
+  box-shadow:
+    0 0 22px rgba(255, 255, 255, 0.75),
+    0 10px 20px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* ─── Scroll arrows ─── */
+:host(.low-end) .scroll-arrow {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  background: rgba(255, 255, 255, 0.35);
+}
+
+/* ─── Modal ─── */
+:host(.low-end) .cbf-modal-overlay {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+:host(.low-end) .cbf-modal {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  background: rgba(30, 20, 60, 0.96) !important;
+}
+
+/* ─── Tooltip ─── */
+:host(.low-end) .cbf-tooltip {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  background: rgba(10, 10, 30, 0.95);
+}
+
+/* ─── Menu popups ─── */
+:host(.low-end) .cbf-main-menu-popup,
+:host(.low-end) .cbf-context-menu-popup {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  background: rgba(30, 20, 60, 0.96) !important;
+  background-image: none !important;
+  /* pointer-events: auto — διατηρείται από το §22 !important */
+}
+
+/* ─── Bulk-lock button ─── */
+:host(.low-end) .bulk-lock {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4) !important;
+}
+
+/* ─── Selection info banner ─── */
+:host(.low-end) .selection-info {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  box-shadow:
+    0 0 12px rgba(255, 215, 0, 0.6),
+    0 3px 8px rgba(0, 0, 0, 0.25) !important;
+}
+
+/* ─── Drag scroll arrows (D&D) ─── */
+:host(.low-end) .drag-scroll-arrow.near {
+  box-shadow:
+    0 0 12px #ffd700,
+    0 0 24px rgba(255, 215, 0, 0.5) !important;
+}
+
+:host(.low-end) .drag-scroll-arrow.active {
+  box-shadow:
+    0 0 20px #ffd700,
+    0 0 40px #ffd700 !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   ΣΥΝΔΥΑΣΜΟΣ low-end + perf-mode
+   ═══════════════════════════════════════════════════════════════════
+   Αν ο χρήστης έχει ΚΑΙ perf-mode ΚΑΙ low-end, τα styles του perf-mode
+   (§11) υπερισχύουν λόγω ιδίας specificity + order. Δεν χρειάζεται
+   ειδικός συνδυασμός — και τα δύο απενεργοποιούν backdrop-filter.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ═══════════════════════════════════════════════════════════════════
+   ΤΕΛΟΣ — v12.2.0 (2026-09-26)
+   ═══════════════════════════════════════════════════════════════════ */

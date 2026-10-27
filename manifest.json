@@ -1,0 +1,119 @@
+{
+  "manifest_version": 3,
+  "name": "Encrypted Carousel Bookmark Flow",
+  "short_name": "ECBF",
+  "version": "12.3.2",
+  "default_locale": "el",
+  "description": "Encrypted Carousel Bookmark Flow – Απομονωμένος κρυπτογραφημένος χώρος σελιδοδεικτών.",
+  "homepage_url": "https://github.com/Eleftherios26/encrypted-carousel-bookmark-flow",
+  "author": "Eleftherios",
+
+  "permissions": [
+    "storage",
+    "unlimitedStorage",
+    "bookmarks",
+    "activeTab",
+    "scripting",
+    "tabs",
+    "downloads"
+  ],
+
+  "background": {
+    "scripts": [
+      "background/core/logger-service.js",
+      "background/services/canonical-encoding.js",
+      "background/services/timing-safe.js",
+      "background/services/crypto-service.js",
+      "background/services/rate-limiter.js",
+      "background/core/vault-transaction.js",
+      "background/services/position-keys.js",
+      "background/services/tree-utils.js",
+      "background/services/session-capability.js",
+      "vendor/hash-wasm/argon2.umd.min.js",
+      "background/services/argon2-loader.js",
+      "background/services/merkle-commitment.js",
+      "background/services/export-service.js",
+      "background/services/import-service.js",
+      "background/core/mutation-sequencer.js",
+      "background/services/move/move-validator.js",
+      "background/services/move/move-normalizer.js",
+      "background/services/move/move-planner.js",
+      "background/services/move/move-executor.js",
+      "background/services/mutations/create-handler.js",
+      "background/services/mutations/rename-handler.js",
+      "background/services/mutations/delete-handler.js",
+      "background/services/mutations/move-handler.js",
+      "background/services/mutations/reorder-handler.js",
+      "background/services/mutations/merge-handler.js",
+      "background/services/mutations/merge-folders-handler.js",
+      "background/services/mutations/import-encrypted-handler.js",
+      "background/services/mutations/registry.js",
+      "background/core/projection-manager.js",
+      "background/core/vault-state-machine.js",
+      "background/core/encrypted-space.js",
+      "background/services/recovery-manager.js",
+      "background/services/favicon-service.js",
+      "background/services/firefox-space-validator.js",
+      "background/services/firefox-dnd-service.js",
+      "background/services/open-handler.js",
+      "background/services/cross-space-service.js",
+      "background/communication/messaging.js",
+      "background/communication/unlock-handler.js",
+      "background/background.js"
+    ]
+  },
+
+  "action": {
+    "default_title": "Άνοιγμα ECBF",
+    "default_icon": {
+      "48": "icons/icon.svg",
+      "96": "icons/icon.svg"
+    }
+  },
+
+  "icons": {
+    "48": "icons/icon.svg",
+    "96": "icons/icon.svg"
+  },
+
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "ecbf@Eleftherios.gr",
+      "strict_min_version": "140.0",
+      "data_collection_permissions": {
+        "required": ["none"]
+      }
+    },
+    "gecko_android": {
+      "strict_min_version": "142.0"
+    }
+  },
+
+  "chrome_url_overrides": {
+    "newtab": "bookmarks/bookmarks.html"
+  },
+
+  "chrome_settings_overrides": {
+    "homepage": "bookmarks/bookmarks.html"
+  },
+
+  "options_ui": {
+    "page": "overlay/options/options.html",
+    "open_in_tab": false
+  },
+
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "icons/*.svg",
+        "icons/*.png",
+        "overlay/injected-shadow.css"
+      ],
+      "matches": ["<all_urls>"]
+    }
+  ],
+
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
+  }
+}

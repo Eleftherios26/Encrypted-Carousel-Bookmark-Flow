@@ -1,0 +1,90 @@
+{
+  "extName": {
+    "message": "Encrypted Carousel Bookmark Flow",
+    "description": "Extension name (χρησιμοποιείται από browser)"
+  },
+  "extDescription": {
+    "message": "Απομονωμένος κρυπτογραφημένος χώρος σελιδοδεικτών.",
+    "description": "Extension description (χρησιμοποιείται από browser)"
+  },
+
+  "options_title": {
+    "message": "Ρυθμίσεις Αρχικής Σελίδας & Νέας Καρτέλας"
+  },
+  "options_why": {
+    "message": "Για λόγους ασφαλείας, ο Firefox δεν επιτρέπει στις επεκτάσεις να εμφανίζουν το Carousel Bookmark Flow πάνω από το about:home και about:newtab. Ορίστε μια νέα αρχική σελίδα."
+  },
+  "options_url_label": {
+    "message": "Εισάγετε την επιθυμητή διεύθυνση (π.χ. www.google.com):"
+  },
+  "options_save": {
+    "message": "Αποθήκευση"
+  },
+  "options_reset": {
+    "message": "Διαγραφή ρυθμίσεων"
+  },
+  "options_note": {
+    "message": "Αυτή η ρύθμιση θα εφαρμοστεί άμεσα. Μπορείτε να την αλλάξετε ανά πάσα στιγμή από τις ρυθμίσεις της επέκτασης."
+  },
+  "options_more_settings": {
+    "message": "Περισσότερες ρυθμίσεις"
+  },
+
+  "import_title": {
+    "message": "Εισαγωγή Favicons από Backup"
+  },
+  "import_description": {
+    "message": "Επιλέξτε ένα αρχείο JSON που δημιουργήσατε με την εξαγωγή των favicons για να επαναφέρετε όλες τις αποθηκευμένες εικόνες."
+  },
+  "import_button": {
+    "message": "Εισαγωγή"
+  },
+
+  "backup_export_bookmarks": {
+    "message": "Εξαγωγή σελιδοδεικτών"
+  },
+  "backup_export_favicons": {
+    "message": "Εξαγωγή favicons"
+  },
+  "backup_export_encrypted_backup": {
+    "message": "Εξαγωγή encrypted (backup)"
+  },
+  "backup_export_encrypted_plain": {
+    "message": "Εξαγωγή encrypted (plain)"
+  },
+  "backup_import_encrypted": {
+    "message": "Εισαγωγή στον encrypted"
+  },
+
+  "tooltip_toggle_performance": {
+    "message": "Performance mode"
+  },
+
+  "context_new_tab": {
+    "message": "Άνοιγμα σε νέα καρτέλα"
+  },
+  "context_rename_bookmark": {
+    "message": "Μετονομασία σελιδοδείκτη"
+  },
+  "context_rename_folder": {
+    "message": "Μετονομασία φακέλου"
+  },
+
+  "prompt_rename_folder": {
+    "message": "Νέο όνομα φακέλου:"
+  },
+  "prompt_rename_bookmark": {
+    "message": "Νέο όνομα σελιδοδείκτη:"
+  },
+  "prompt_merge_folder": {
+    "message": "Όνομα νέου φακέλου:"
+  },
+
+  "switch_space_not_initialized": {
+    "message": "Δεν έχετε δημιουργήσει κρυπτογραφημένο χώρο.\n\nΔημιουργήστε τον τώρα με κωδικό πρόσβασης."
+  },
+
+  "alert_export_plain_confirm": {
+    "message": "Προσοχή: Η εξαγωγή χωρίς κρυπτογράφηση θα αποκαλύψει\nόλους τους σελιδοδείκτες του κρυπτογραφημένου χώρου.\n\nΣυνέχεια;"
+  }
+}

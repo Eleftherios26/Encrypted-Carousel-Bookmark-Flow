@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+  <meta charset="utf-8">
+  <title>ECBF – Ρυθμίσεις</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+
+  <!-- BANNER ΑΣΦΑΛΕΙΑΣ -->
+  <div id="securityBanner" class="security-banner hidden">
+    <img src="../../icons/lock.svg" alt="" class="security-banner-icon">
+    <span id="securityBannerText">Ασφαλής σελίδα – Τα δεδομένα παραμένουν τοπικά στον Firefox</span>
+  </div>
+
+  <!-- ΟΘΟΝΗ ΞΕΚΛΕΙΔΩΜΑΤΟΣ -->
+  <div id="lockScreen" class="lock-screen hidden">
+    <div class="lock-screen-box">
+      <img src="../../icons/key_lock.svg" alt="" class="lock-screen-icon">
+      <h2>Κλειδωμένη σελίδα</h2>
+      <p>Εισάγετε τον κωδικό πρόσβασης για να δείτε τις ρυθμίσεις.</p>
+      <input type="password" id="unlockPassword" placeholder="Κωδικός πρόσβασης">
+      <div class="button-row">
+        <button id="unlockBtn">Ξεκλείδωμα</button>
+      </div>
+      <p id="unlockStatus" class="status-message"></p>
+    </div>
+  </div>
+
+  <!-- ΚΥΡΙΟ ΠΕΡΙΕΧΟΜΕΝΟ (ορατό από την αρχή — ΟΧΙ hidden) -->
+  <div id="mainContent">
+
+    <h2 data-i18n="options_title">Ρυθμίσεις Αρχικής Σελίδας & Νέας Καρτέλας</h2>
+
+    <div class="info-box">
+      <p data-i18n="options_why">
+        Για λόγους ασφαλείας, ο Firefox δεν επιτρέπει στις επεκτάσεις να εμφανίζουν το
+        Carousel Bookmark Flow πάνω από το about:home και about:newtab. Ορίστε μια νέα αρχική σελίδα.
+      </p>
+    </div>
+
+    <p data-i18n="options_url_label">Εισάγετε την επιθυμητή διεύθυνση (π.χ. www.google.com):</p>
+    <label>
+      <input type="url" id="homepageUrl" placeholder="https://www.example.com">
+    </label>
+    <div class="button-row">
+      <button id="saveBtn" data-i18n="options_save">Αποθήκευση</button>
+      <button id="resetBtn" class="reset" data-i18n="options_reset">Διαγραφή ρυθμίσεων</button>
+    </div>
+
+    <hr>
+
+    <!-- ΕΙΣΑΓΩΓΗ FAVICONS (πριν το create — όπως v12.4) -->
+    <h2 data-i18n="import_title">Εισαγωγή Favicons από Backup</h2>
+    <div class="info-box">
+      <p data-i18n="import_description">Επιλέξτε ένα αρχείο JSON που δημιουργήσατε με την εξαγωγή των favicons για να επαναφέρετε όλες τις αποθηκευμένες εικόνες.</p>
+    </div>
+    <input type="file" id="importFile" accept=".json">
+    <button id="importBtn" data-i18n="import_button">Εισαγωγή</button>
+    <p id="importStatus" class="status-message"></p>
+
+    <hr>
+
+    <!-- Δημιουργία κρυπτογραφημένου χώρου -->
+    <div id="createEncryptedSection" class="hidden">
+      <h2>Δημιουργία κρυπτογραφημένου χώρου</h2>
+      <div class="info-box">
+        <p>Δεν έχετε ορίσει κωδικό πρόσβασης. Δημιουργήστε τώρα για να χρησιμοποιήσετε τον κρυπτογραφημένο χώρο.</p>
+      </div>
+      <label for="newEncryptedPassword">Κωδικός πρόσβασης</label>
+      <input type="password" id="newEncryptedPassword" placeholder="Κωδικός πρόσβασης">
+      <label for="confirmNewEncryptedPassword">Επιβεβαίωση κωδικού</label>
+      <input type="password" id="confirmNewEncryptedPassword" placeholder="Επιβεβαίωση κωδικού">
+      <div class="button-row">
+        <button id="createEncryptedBtn">Δημιουργία</button>
+      </div>
+      <p id="createEncryptedStatus" class="status-message"></p>
+    </div>
+
+    <!-- Αλλαγή κωδικού -->
+    <div id="changePasswordSection" class="hidden">
+      <h2>Αλλαγή κωδικού πρόσβασης κρυπτογραφημένου χώρου</h2>
+      <div class="info-box">
+        <p>Μπορείτε να αλλάξετε τον κωδικό πρόσβασης που προστατεύει τον κρυπτογραφημένο χώρο. Θα χρειαστείτε τον τρέχοντα κωδικό.</p>
+      </div>
+      <label for="oldPassword">Τρέχων κωδικός</label>
+      <input type="password" id="oldPassword" placeholder="Τρέχων κωδικός">
+
+      <label for="newPassword">Νέος κωδικός</label>
+      <input type="password" id="newPassword" placeholder="Νέος κωδικός">
+
+      <label for="confirmNewPassword">Επιβεβαίωση νέου κωδικού</label>
+      <input type="password" id="confirmNewPassword" placeholder="Επιβεβαίωση νέου κωδικού">
+
+      <div class="button-row">
+        <button id="changePasswordBtn">Αλλαγή κωδικού</button>
+      </div>
+      <p id="changePasswordStatus" class="status-message"></p>
+    </div>
+
+    <hr>
+
+    <!-- STRICT PRIVACY MODE -->
+    <h2>Λειτουργία Αυστηρής Ιδιωτικότητας</h2>
+    <div class="info-box">
+      <p>
+        Όταν είναι ενεργή, οι τίτλοι των σελιδοδεικτών δεν εκτίθενται στο overlay UI
+        ούτε στα mutation events μεταξύ tabs. Χρήσιμο για screen sharing / remote support.
+      </p>
+    </div>
+    <label class="toggle-row">
+      <input type="checkbox" id="strictPrivacyToggle">
+      <span>Ενεργοποίηση strict privacy mode</span>
+    </label>
+    <p id="strictPrivacyStatus" class="status-message"></p>
+
+    <p class="note" data-i18n="options_note">Αυτή η ρύθμιση θα εφαρμοστεί άμεσα. Μπορείτε να την αλλάξετε ανά πάσα στιγμή από τις ρυθμίσεις της επέκτασης.</p>
+
+  </div>
+
+  <script src="options.js"></script>
+</body>
+</html>

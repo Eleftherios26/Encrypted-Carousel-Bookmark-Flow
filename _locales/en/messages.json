@@ -1,0 +1,90 @@
+{
+  "extName": {
+    "message": "Encrypted Carousel Bookmark Flow",
+    "description": "Extension name (used by browser)"
+  },
+  "extDescription": {
+    "message": "Isolated encrypted bookmark space.",
+    "description": "Extension description (used by browser)"
+  },
+
+  "options_title": {
+    "message": "Homepage & New Tab Settings"
+  },
+  "options_why": {
+    "message": "For security reasons, Firefox does not allow extensions to display the Carousel Bookmark Flow over about:home and about:newtab. Set a new homepage."
+  },
+  "options_url_label": {
+    "message": "Enter the desired address (e.g. www.google.com):"
+  },
+  "options_save": {
+    "message": "Save"
+  },
+  "options_reset": {
+    "message": "Reset settings"
+  },
+  "options_note": {
+    "message": "This setting will be applied immediately. You can change it anytime from the extension's settings."
+  },
+  "options_more_settings": {
+    "message": "More settings"
+  },
+
+  "import_title": {
+    "message": "Import Favicons from Backup"
+  },
+  "import_description": {
+    "message": "Select a JSON file created by the favicon export to restore all saved images."
+  },
+  "import_button": {
+    "message": "Import"
+  },
+
+  "backup_export_bookmarks": {
+    "message": "Export bookmarks"
+  },
+  "backup_export_favicons": {
+    "message": "Export favicons"
+  },
+  "backup_export_encrypted_backup": {
+    "message": "Export encrypted (backup)"
+  },
+  "backup_export_encrypted_plain": {
+    "message": "Export encrypted (plain)"
+  },
+  "backup_import_encrypted": {
+    "message": "Import to encrypted"
+  },
+
+  "tooltip_toggle_performance": {
+    "message": "Performance mode"
+  },
+
+  "context_new_tab": {
+    "message": "Open in new tab"
+  },
+  "context_rename_bookmark": {
+    "message": "Rename bookmark"
+  },
+  "context_rename_folder": {
+    "message": "Rename folder"
+  },
+
+  "prompt_rename_folder": {
+    "message": "New folder name:"
+  },
+  "prompt_rename_bookmark": {
+    "message": "New bookmark name:"
+  },
+  "prompt_merge_folder": {
+    "message": "New folder name:"
+  },
+
+  "switch_space_not_initialized": {
+    "message": "You have not created an encrypted space yet.\n\nCreate one now with a password."
+  },
+
+  "alert_export_plain_confirm": {
+    "message": "Warning: Exporting without encryption will reveal\nall bookmarks in the encrypted space.\n\nContinue?"
+  }
+}
