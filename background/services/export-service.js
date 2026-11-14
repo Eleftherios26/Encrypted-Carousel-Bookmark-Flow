@@ -2,27 +2,29 @@
  * export-service.js — Export helpers (pure, read-only)
  *
  * @path     background/services/export-service.js
- * @version  12.2.0
- * @since    v12E / v12.2
+ * @version  12.5.0
+ * @since    v12E / v12.5
  *
  * PURPOSE
  *   Pure helper functions για exports. ΔΕΝ γράφουν IDB, ΔΕΝ στέλνουν
  *   network requests, ΔΕΝ κάνουν crypto πέρα από SHA-256 (για restore
  *   format compliance).
  *
- *   5 export types:
- *     1. buildFirefoxRestoreJSON(items)    — v12.4 parity
- *     2. collectFaviconsForExport()        — από storage.local
- *     3. collectFirefoxTreeAsJSON()        — από browser.bookmarks.getTree()
- *     4. collectEncryptedAsPlain()         — από CBF_ES (decrypted)
- *     5. collectEncryptedAsBackup()        — ciphertext backup
+ * 5 export types:
+ *   1. buildFirefoxRestoreJSON(items)    — v12.4 parity
+ *   2. collectFaviconsForExport()        — από storage.local
+ *   3. collectFirefoxTreeAsJSON()        — από browser.bookmarks.getTree()
+ *   4. collectEncryptedAsPlain()         — από CBF_ES (decrypted)
+ *   5. collectEncryptedAsBackup()        — ciphertext backup
  *
  * NON-OBVIOUS
  *   • Όλα τα exports περνάνε μέσω messaging handler → background →
  *     download. Καμία plaintext data δεν φτάνει στο overlay (Invariant #7).
+ *
  *   • Το buildFirefoxRestoreJSON() χρησιμοποιεί NUMERIC IDs (1, 2, 3...)
  *     για Firefox restore format compliance — το original UUID πάει
  *     στο `guid` field.
+ *
  *   • Το collectEncryptedAsBackup() περιλαμβάνει το KDF config (salt +
  *     params) ώστε ο χρήστης να μπορεί να κάνει restore με τον σωστό
  *     κωδικό.
@@ -31,50 +33,79 @@
  *   D-51 (Export/Import μέσω port protocol)
  *   D-55 (downloads permission — restored)
  *
- * CHANGELOG v12.2.0 (2026-09-26) — FAVICON EXPORT FIX
- *   ═══════════════════════════════════════════════════════════════════
- *   FAV-01: Format mismatch fix
- *     ΠΡΟΒΛΗΜΑ: Το favicon-service.js v12E γράφει objects
- *       { dataUrl, fetchedAt } στο storage.local, αλλά το
- *       collectFaviconsForExport() έκανε `if (typeof value !== 'string') continue;`
- *       → όλα τα νέα favicons ΑΓΝΟΟΥΝΤΑΝ σιωπηλά.
+ * CHANGELOG
+ * ══════════════════════════════════════════════════════════════════════
+ * v12.5.0 (2026-10-28) — LARGE FAVICON EXPORT SUPPORT
+ * ══════════════════════════════════════════════════════════════════════
+ * ΠΡΟΒΛΗΜΑ:
+ *   Με MAX_FAVICON_SIZE=50KB στο collectFaviconsForExport(), τα
+ *   favicons > 50KB (multi-res ICO, retina PNG) απορρίπτονταν σιωπηλά
+ *   από το export. Επιβεβαίωση από v12.2.0 FAV-02 fix logs:
  *
- *     ΛΥΣΗ: Handle BOTH formats:
- *       - Legacy: raw string
- *       - New: { dataUrl, fetchedAt }
+ *     Skipping media-ram.gr: dataUrl 990134 bytes > 51200 limit (50KB)
  *
- *   FAV-02: MAX_FAVICON_SIZE 10KB → 50KB
- *     ΠΡΟΒΛΗΜΑ: Το export limit ήταν 10KB, αλλά το favicon-service
- *       (V12E.E-FAVICON-01) αποθηκεύει μέχρι 50KB (ICO-friendly).
- *       → favicons 10-50KB (Apple, Facebook, insomnia.gr) χάνονταν.
+ *   Αποτέλεσμα: ο χρήστης έχανε τα μεγάλα favicons στο export, ακόμα
+ *   κι αν αυτά υπήρχαν στο storage.
  *
- *     ΛΥΣΗ: Update σε 50KB — consistency με favicon-service.
+ * ΛΥΣΗ:
+ *   Consistency με favicon-service v12.5.0 (MAX_STORAGE_DATAURL_LENGTH):
+ *     • 50 * 1024  →  200 * 1024  (200KB)
  *
- *   FAV-03: Diagnostics logging
- *     Προστέθηκαν counters (scanned, skipped-invalid, skipped-not-image,
- *     skipped-too-large) για debugging του export.
- *   ═══════════════════════════════════════════════════════════════════
+ *   ΣΗΜΕΙΩΣΗ: Από v12.5.0, το favicon-service κάνει auto-resize των
+ *   favicons > 200KB σε 32px WebP/PNG. Άρα ό,τι είναι στο storage
+ *   είναι ≤ 200KB (persistent limit). Το export θα τα πιάνει όλα.
+ *
+ * Impact:
+ *   • ✅ Export περιλαμβάνει multi-res ICO + retina PNG (50-200KB)
+ *   • ✅ Consistency με import-service + background + favicon-service
+ *   • ✅ Zero regression σε existing exports (ήδη < 50KB)
+ * ══════════════════════════════════════════════════════════════════════
+ * v12.2.0 (2026-09-26) — FAVICON EXPORT FIX
+ * ══════════════════════════════════════════════════════════════════════
+ * FAV-01: Format mismatch fix
+ *   ΠΡΟΒΛΗΜΑ: Το favicon-service.js v12E γράφει objects
+ *     { dataUrl, fetchedAt } στο storage.local, αλλά το
+ *     collectFaviconsForExport() έκανε `if (typeof value !== 'string') continue;`
+ *     → όλα τα νέα favicons ΑΓΝΟΟΥΝΤΑΝ σιωπηλά.
+ *   ΛΥΣΗ: Handle BOTH formats:
+ *     - Legacy: raw string
+ *     - New: { dataUrl, fetchedAt }
+ *
+ * FAV-02: MAX_FAVICON_SIZE 10KB → 50KB (v12.5.0: → 200KB)
+ *   ΠΡΟΒΛΗΜΑ: Το export limit ήταν 10KB, αλλά το favicon-service
+ *     (V12E.E-FAVICON-01) αποθηκεύει μέχρι 50KB (ICO-friendly).
+ *     → favicons 10-50KB (Apple, Facebook, insomnia.gr) χάνονταν.
+ *   ΛΥΣΗ: Update σε 50KB — consistency με favicon-service.
+ *     (v12.5.0: → 200KB για multi-res ICO + retina PNG)
+ *
+ * FAV-03: Diagnostics logging
+ *   Προστέθηκαν counters (scanned, skipped-invalid, skipped-not-image,
+ *   skipped-too-large) για debugging του export.
+ * ══════════════════════════════════════════════════════════════════════
  *
  * FULL HISTORY
  *   → docs/ECBF-Manual.html → search "export-service"
  */
-
 var CBF_EXPORT_SERVICE = (function() {
   'use strict';
 
   // ═══════════════════════════════════════════════════════════
-  //  ⭐ v12.2.0 FAV-02 FIX: 10KB → 50KB
+  //  ⭐ v12.5.0 FAV-02 UPDATE: 50KB → 200KB
   //
-  //  Consistency με favicon-service.js MAX_DATAURL_LENGTH
-  //  (V12E.E-FAVICON-01 — ICO-friendly limit).
+  //  Consistency με favicon-service.js MAX_STORAGE_DATAURL_LENGTH
+  //  (v12.5.0).
   //
-  //  Γιατί 50KB:
-  //    • Apple touch icons: 20-40 KB
-  //    • Multi-resolution ICO: 20-50 KB
-  //    • Facebook/Instagram: 30-50 KB
+  //  Γιατί 200KB:
+  //    • Multi-resolution ICO: 50-150 KB
+  //    • Apple retina touch icons: 40-100 KB
+  //    • High-DPI PNG: 100-200 KB
   //    • Standard PNG: 1-10 KB
+  //
+  //  ΣΗΜΕΙΩΣΗ: Από v12.5.0, το favicon-service κάνει auto-resize
+  //  των >200KB σε 32px WebP/PNG πριν την αποθήκευση. Άρα ό,τι
+  //  είναι στο storage είναι ≤ 200KB.
   // ═══════════════════════════════════════════════════════════
-  const MAX_FAVICON_SIZE = 50 * 1024;   // 50 KB (was 10 KB in v12E)
+  const MAX_FAVICON_SIZE = 200 * 1024;   // 200 KB (was 50 KB in v12.2, 10 KB in v12E)
 
   const FIREFOX_ROOT_IDS = [
     'toolbar_____', 'menu________', 'unfiled_____', 'mobile______'
@@ -220,7 +251,7 @@ var CBF_EXPORT_SERVICE = (function() {
   // ============================================================
   //  2. collectFaviconsForExport
   //
-  //  ⭐ v12.2.0 FAV-01 + FAV-02 + FAV-03 FIX
+  //  ⭐ v12.2.0 FAV-01 + FAV-03 + v12.5.0 FAV-02 UPDATE
   //
   //  ΠΡΟΒΛΗΜΑ (v12E):
   //    Το favicon-service.js γράφει objects { dataUrl, fetchedAt }
@@ -228,9 +259,14 @@ var CBF_EXPORT_SERVICE = (function() {
   //      if (typeof value !== 'string') continue;
   //    → όλα τα νέα favicons ΑΓΝΟΟΥΝΤΑΝ σιωπηλά.
   //
-  //  ΛΥΣΗ:
+  //  ΛΥΣΗ (FAV-01):
   //    • Handle BOTH formats (legacy string + new object)
-  //    • Update MAX_FAVICON_SIZE σε 50KB (consistency με favicon-service)
+  //
+  //  ΛΥΣΗ (FAV-02 v12.5.0):
+  //    • MAX_FAVICON_SIZE: 50KB → 200KB (consistency με favicon-service
+  //      MAX_STORAGE_DATAURL_LENGTH)
+  //
+  //  ΛΥΣΗ (FAV-03):
   //    • Diagnostics counters για debugging
   //
   //  Storage format (2 types):
@@ -296,12 +332,12 @@ var CBF_EXPORT_SERVICE = (function() {
         continue;
       }
 
-      // ⭐ FAV-02 FIX: 10KB → 50KB (consistency με favicon-service)
+      // ⭐ v12.5.0 FAV-02 UPDATE: 50KB → 200KB (consistency με favicon-service)
       if (dataUrl.length > MAX_FAVICON_SIZE) {
         skippedTooLarge++;
         warn(
           `Skipping ${hostname}: dataUrl ${dataUrl.length} bytes > ` +
-          `${MAX_FAVICON_SIZE} limit (50KB)`
+          `${MAX_FAVICON_SIZE} limit (200KB)`
         );
         continue;
       }
@@ -521,9 +557,9 @@ var CBF_EXPORT_SERVICE = (function() {
 
   if (typeof CBF_LOGGER !== 'undefined') {
     CBF_LOGGER.info(
-      'Export Service ready (v12.2.0 FAV-01/02/03: ' +
+      'Export Service ready (v12.5.0 FAV-01/02/03: ' +
       'dual-format favicon export (string + object) + ' +
-      'MAX_FAVICON_SIZE=50KB (consistency με favicon-service) + ' +
+      'MAX_FAVICON_SIZE=200KB (consistency με favicon-service) + ' +
       'diagnostics counters)'
     );
   }

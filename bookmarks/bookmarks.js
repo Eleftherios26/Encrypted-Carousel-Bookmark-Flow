@@ -1,12 +1,60 @@
 // bookmarks/bookmarks.js
 //
-// ECBF v12E Final 2 — Newtab/Homepage redirect
+// ECBF v12.4 — Newtab/Homepage redirect
 //
-// Στρατηγική (ίδια με v12.4):
-//   1. Script εκτελείται αμέσως (body είναι κενό → κανένα flash)
+// @path     bookmarks/bookmarks.js
+// @version  12.4.0
+// @since    v12E / v12.4
+//
+// PURPOSE
+//   Newtab/Homepage page controller. Διαβάζει το userHomepage από
+//   storage.local και:
+//     1. Αν υπάρχει → redirect μέσω window.location.replace()
+//     2. Αν δεν υπάρχει → fallback UI με κουμπί που ανοίγει options
+//
+// STRATEGY (ίδια με v12.4)
+//   1. Script εκτελείται αμέσως (body κενό → κανένα flash)
 //   2. Αν υπάρχει homepage → redirect
 //   3. Αν ΔΕΝ υπάρχει → δημιουργεί fallback UI δυναμικά
 //
+// CHANGELOG
+// ══════════════════════════════════════════════════════════════════════
+// v12.4.0 (2026-10-27) — L-4 FIX: Complete reloadBookmarksPage flow
+// ══════════════════════════════════════════════════════════════════════
+// ΠΡΙΝ:
+//   Το module είχε orphan listener για 'reloadBookmarksPage' που δεν
+//   έστελνε κανείς. Dead code (feature που δεν ολοκληρώθηκε).
+//
+// ΜΕΤΑ:
+//   Ο listener είναι πλέον endpoint του πλήρους flow:
+//     options.js (setHomepage) →
+//     background.js (broadcast σε tabs) →
+//     bookmarks.js (reload → νέο redirect)
+//
+//   Στο background.js προστέθηκε native handler
+//   (msg.type === 'reloadBookmarksPage') που κάνει
+//   browser.tabs.query + sendMessage σε όλα τα ανοιχτά
+//   bookmarks.html tabs.
+//
+//   Στο options.js (saveBtn handler) προστέθηκε κλήση
+//   browser.runtime.sendMessage({ type: 'reloadBookmarksPage' })
+//   μετά από επιτυχές setHomepage.
+//
+// Impact:
+//   Όταν ο χρήστης αλλάζει homepage από options page, όλα τα tabs
+//   που έχουν ανοιχτό bookmarks.html ανανεώνονται αυτόματα →
+//   redirect στο νέο homepage. Zero χειροκίνητο reload.
+//
+// Security:
+//   Προστέθηκε sender validation (D3 defense-in-depth pattern) —
+//   αν και το browser.runtime.onMessage είναι inherently trusted,
+//   ο έλεγχος sender.id === browser.runtime.id είναι best practice
+//   και consistent με content-overlay.js.
+//
+// VERSION ALIGNMENT:
+//   • @version  (νέο — πρώτη explicit version του file)
+//   • @since    v12E / v12.4
+// ══════════════════════════════════════════════════════════════════════
 
 (function() {
   'use strict';
@@ -99,9 +147,36 @@
     init();
   }
 
-  browser.runtime.onMessage.addListener((msg) => {
+  // ============================================================
+  //  v12.4 L-4: reloadBookmarksPage listener (COMPLETE FLOW)
+  //
+  //  Endpoint του flow:
+  //    options.js::saveBtn
+  //      → browser.runtime.sendMessage({ type: 'reloadBookmarksPage' })
+  //    background.js::runtime.onMessage
+  //      → browser.tabs.query + browser.tabs.sendMessage σε κάθε tab
+  //    bookmarks.js (εδώ)
+  //      → location.reload() → init() → redirect στο νέο homepage
+  //
+  //  SECURITY: sender validation (D3 defense-in-depth pattern) —
+  //  αν και το onMessage από το ίδιο extension είναι inherently
+  //  trusted, ο έλεγχος είναι best practice + consistent με το
+  //  content-overlay.js (D3 pattern).
+  // ============================================================
+  browser.runtime.onMessage.addListener((msg, sender) => {
+    // D3: sender validation — μόνο μηνύματα από το ίδιο extension
+    if (!sender || sender.id !== browser.runtime.id) {
+      console.warn(
+        '[ECBF:Bookmarks] REJECTED message from untrusted sender:',
+        sender?.id || 'unknown'
+      );
+      return;
+    }
+
     if (msg && msg.action === 'reloadBookmarksPage') {
+      console.log('[ECBF:Bookmarks] reloadBookmarksPage received — reloading to pick up new homepage');
       location.reload();
     }
   });
+
 })();

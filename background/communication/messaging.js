@@ -1,9 +1,8 @@
 /**
  * messaging.js — Overlay ↔ Background message router (36 handlers)
- *
  * @path     background/communication/messaging.js
- * @version  12.3.0
- * @since    v12E / v12.3E
+ * @version  12.4.0
+ * @since    v12E / v12.4
  *
  * PURPOSE
  *   Κεντρικός router μηνυμάτων Overlay ↔ Background με HMAC-signed
@@ -39,58 +38,75 @@
  *   D-51, D-52, D-53, D-56
  *
  * CHANGELOG
- *   ══════════════════════════════════════════════════════════════════════
- *   v12.3.0 (2026-09-28) — IMPORT FAVICONS INVALIDATION FIX
- *   ══════════════════════════════════════════════════════════════════════
- *   BUG-FIX (HIGH): handleImportFavicons δεν ενημέρωνε το negative
- *   cache του favicon-service ούτε έκανε broadcast στα overlays.
- *
- *     ΠΡΟΒΛΗΜΑ (consistency με background.js::importFaviconsSimple):
- *       Ο handler έγραφε storage.local απευθείας, αλλά:
- *         ❌ ΔΕΝ invalidated το favicon-service._negativeCache
- *         ❌ ΔΕΝ έκανε broadcast faviconUpdate στα ανοιχτά overlays
- *
- *       Συνέπεια: Ένα overlay που ζήτησε getFavicon πριν το import
- *       έπαιρνε negative cache hit (5min TTL) αντί για το νέο favicon.
- *
- *       Επιβεβαίωση από logs:
- *         14:46:02  getFavicon(x.com) → No favicon → negative-cached
- *         14:46:14  Import 86 favicons
- *         14:46:19  getFavicon(x.com) → NEGATIVE CACHE HIT → null ❌
- *
- *     ΛΥΣΗ:
- *       Ίδιο pattern με background.js::importFaviconsSimple (v12.3.1):
- *         1. CBF_FAVICON.invalidateNegativeCache() — server-side
- *         2. CBF_FAVICON._internal._broadcastFavicon() για κάθε entry
- *            με excludePort = port (ο caller ενημερώνεται από το
- *            importResult response)
- *
- *     Impact:
- *       Consistency μεταξύ των 2 import paths (options page +
- *       overlay port protocol). Imported favicons εμφανίζονται
- *       αμέσως στο overlay.
- *
- *   VERSION ALIGNMENT:
- *     • @version 12.2.0 → 12.3.0
- *     • @since v12E / v12.2 → v12E / v12.3E
- *     • Init log string: v12.3E
- *   ══════════════════════════════════════════════════════════════════════
- *   v12.2.0 (2026-09-26) — LOW-END HARDWARE OPTIMIZATION
- *   ══════════════════════════════════════════════════════════════════════
- *   CPU-10: _broadcastMutationToOthers — SERIALIZED αντί Promise.all
- *     Rationale: Το HMAC sign είναι CPU-bound. Σε 3+ parallel signs,
- *     το low-end CPU κάνει spike (~50-150ms blocking). Serial loop
- *     = ομαλή ροή, χωρίς αντιληπτός κόπος σε 1-2 tabs.
- *
- *   v12.1.0 (2026-09-22):
- *     • BUG-1 FIX: `unfilled_____` → `unfiled_____` στο FIREFOX_ROOT_IDS
- *     • ISSUE-1 FIX: Προσθήκη native `openOptionsPage` handler (36 handlers)
- *   ══════════════════════════════════════════════════════════════════════
+ * ══════════════════════════════════════════════════════════════════════
+ * v12.4.0 (2026-10-27) — WARNINGS PROPAGATION FIX
+ * ══════════════════════════════════════════════════════════════════════
+ * L-3 FIX (LOW): firefoxMerge/firefoxMergeFolders warnings δεν
+ * έφταναν στον client.
+ *   ΠΡΟΒΛΗΜΑ:
+ *     Τα firefox-dnd-service handlers επιστρέφουν { success, result,
+ *     warnings, mutation }. Τα messaging handlers όμως έστελναν μόνο
+ *     result: result.result — τα warnings (truncation M-17) χάνονταν
+ *     σιωπηλά. Ο χρήστης δεν έβλεπε ποτέ warning dialog όταν ένας
+ *     τίτλος >500 chars truncate-αρονταν.
+ *   ΛΥΣΗ:
+ *     Προσθήκη warnings: result.warnings || [] στο mutationResult
+ *     response για:
+ *       • handleFirefoxMerge
+ *       • handleFirefoxMergeFolders
+ *   ΣΗΜΕΙΩΣΗ:
+ *     Πραγματικό impact: κυρίως firefoxMergeFolders (source.title από
+ *     Firefox μπορεί να είναι >500 chars). Στο firefoxMerge το
+ *     folderName είναι ήδη validated από messaging.validateTitle
+ *     (throws if >500) — το fix είναι defensive για consistency.
+ * VERSION ALIGNMENT:
+ *   • @version 12.3.0 → 12.4.0
+ *   • @since v12E / v12.3E → v12E / v12.4
+ *   • Init log string: v12.3.0 → v12.4.0
+ * ══════════════════════════════════════════════════════════════════════
+ * v12.3.0 (2026-09-28) — IMPORT FAVICONS INVALIDATION FIX
+ * ══════════════════════════════════════════════════════════════════════
+ * BUG-FIX (HIGH): handleImportFavicons δεν ενημέρωνε το negative
+ * cache του favicon-service ούτε έκανε broadcast στα overlays.
+ * ΠΡΟΒΛΗΜΑ (consistency με background.js::importFaviconsSimple):
+ *   Ο handler έγραφε storage.local απευθείας, αλλά:
+ *     ❌ ΔΕΝ invalidated το favicon-service._negativeCache
+ *     ❌ ΔΕΝ έκανε broadcast faviconUpdate στα ανοιχτά overlays
+ *   Συνέπεια: Ένα overlay που ζήτησε getFavicon πριν το import
+ *   έπαιρνε negative cache hit (5min TTL) αντί για το νέο favicon.
+ *   Επιβεβαίωση από logs:
+ *     14:46:02  getFavicon(x.com) → No favicon → negative-cached
+ *     14:46:14  Import 86 favicons
+ *     14:46:19  getFavicon(x.com) → NEGATIVE CACHE HIT → null ❌
+ * ΛΥΣΗ:
+ *   Ίδιο pattern με background.js::importFaviconsSimple (v12.3.1):
+ *     1. CBF_FAVICON.invalidateNegativeCache() — server-side
+ *     2. CBF_FAVICON._internal._broadcastFavicon() για κάθε entry
+ *        με excludePort = port (ο caller ενημερώνεται από το
+ *        importResult response)
+ * Impact:
+ *   Consistency μεταξύ των 2 import paths (options page +
+ *   overlay port protocol). Imported favicons εμφανίζονται
+ *   αμέσως στο overlay.
+ * VERSION ALIGNMENT:
+ *   • @version 12.2.0 → 12.3.0
+ *   • @since v12E / v12.2 → v12E / v12.3E
+ *   • Init log string: v12.3E
+ * ══════════════════════════════════════════════════════════════════════
+ * v12.2.0 (2026-09-26) — LOW-END HARDWARE OPTIMIZATION
+ * ══════════════════════════════════════════════════════════════════════
+ * CPU-10: _broadcastMutationToOthers — SERIALIZED αντί Promise.all
+ * Rationale: Το HMAC sign είναι CPU-bound. Σε 3+ parallel signs,
+ * το low-end CPU κάνει spike (~50-150ms blocking). Serial loop
+ * = ομαλή ροή, χωρίς αντιληπτός κόπος σε 1-2 tabs.
+ * v12.1.0 (2026-09-22):
+ *   • BUG-1 FIX: `unfilled_____` → `unfiled_____` στο FIREFOX_ROOT_IDS
+ *   • ISSUE-1 FIX: Προσθήκη native `openOptionsPage` handler (36 handlers)
+ * ══════════════════════════════════════════════════════════════════════
  *
  * FULL HISTORY
  *   → docs/ECBF-Manual.html → search "messaging"
  */
-
 var CBF_MESSAGING = (function() {
   'use strict';
 
@@ -108,8 +124,7 @@ var CBF_MESSAGING = (function() {
   const MAX_IMPORT_SIZE_BYTES = 5 * 1024 * 1024;   // 5 MB
   const MAX_FAVICON_IMPORT_SIZE = 3 * 1024 * 1024; // 3 MB
 
-  const UUID_V4_REGEX =
-    /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  const UUID_V4_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
   // ============================================================
   //  ASCII-safe phonetic char map (Unicode escapes)
@@ -515,12 +530,14 @@ var CBF_MESSAGING = (function() {
     const path = [];
     let current = id;
     let safety = 20;
+
     while (current && safety-- > 0) {
       try {
         const nodes = await browser.bookmarks.get(current);
         if (!nodes || nodes.length === 0) break;
         const node = nodes[0];
         path.unshift({ id: node.id, title: node.title || node.id });
+
         if (FIREFOX_ROOT_IDS.includes(node.parentId)) {
           try {
             const roots = await browser.bookmarks.get(node.parentId);
@@ -634,6 +651,7 @@ var CBF_MESSAGING = (function() {
   async function handleGetPath(port, sessionId, msg) {
     const space = _getSpace(port);
     const id = requireString(msg.payload?.id, 'id');
+
     let path = [];
     if (space === 'firefox') {
       path = await firefoxGetPath(id);
@@ -641,6 +659,7 @@ var CBF_MESSAGING = (function() {
       const itemsMap = CBF_PROJECTION.getItemsMap();
       path = CBF_TREE.getPath(itemsMap, id, CBF_ES.ROOT_ID);
     }
+
     await sendTo(port, sessionId, 'pathResult', {
       commandId: msg.commandId || null,
       path,
@@ -655,6 +674,7 @@ var CBF_MESSAGING = (function() {
     try {
       const id = requireString(msg.payload?.id, 'id');
       let url = null;
+
       if (space === 'firefox') {
         const nodes = await browser.bookmarks.get(id);
         if (!nodes || nodes.length === 0) {
@@ -703,6 +723,7 @@ var CBF_MESSAGING = (function() {
       let code = 'INVALID_URL';
       if (/too long/i.test(e.message)) code = 'URL_TOO_LONG';
       else if (/http\(s\)/i.test(e.message)) code = 'INVALID_URL_PROTOCOL';
+
       await sendTo(port, sessionId, 'faviconResult', {
         commandId, url: null, dataUrl: null, error: code
       });
@@ -905,6 +926,7 @@ var CBF_MESSAGING = (function() {
 
     // 🔧 v12.2 CPU-10: Serial execution (HMAC sign is CPU-bound)
     let sent = 0, failed = 0;
+
     for (const t of tasks) {
       try {
         const ok = await sendTo(t.port, t.sessionId, 'mutationEvent', event);
@@ -932,6 +954,7 @@ var CBF_MESSAGING = (function() {
     switch (outcome.status) {
       case 'OK':
         if (typeof onSuccess === 'function') onSuccess(outcome);
+
         CBF_PROJECTION.setGeneration(outcome.generation);
 
         if (broadcast) {
@@ -1132,6 +1155,7 @@ var CBF_MESSAGING = (function() {
     const id = requireString(msg.payload?.id, 'id');
     const targetId = requireString(msg.payload?.targetId, 'targetId');
     const position = msg.payload?.position;
+
     if (position !== 'before' && position !== 'after') {
       throw new Error('position must be before|after');
     }
@@ -1186,6 +1210,7 @@ var CBF_MESSAGING = (function() {
 
     await _dispatchMutationOutcome(port, sessionId, commandId, outcome, (o) => {
       const nf = o.result;
+
       CBF_PROJECTION.applyMutation({
         type: 'created',
         node: {
@@ -1194,6 +1219,7 @@ var CBF_MESSAGING = (function() {
           type: 'folder', title: nf.title, url: null
         }
       });
+
       for (const mid of [item1Id, item2Id]) {
         const existing = CBF_PROJECTION.getItem(mid);
         if (existing) {
@@ -1234,6 +1260,7 @@ var CBF_MESSAGING = (function() {
 
     await _dispatchMutationOutcome(port, sessionId, commandId, outcome, (o) => {
       const nf = o.result;
+
       CBF_PROJECTION.applyMutation({
         type: 'created',
         node: {
@@ -1242,6 +1269,7 @@ var CBF_MESSAGING = (function() {
           type: 'folder', title: nf.title, url: null
         }
       });
+
       CBF_PROJECTION.applyMutation({
         type: 'deleted',
         node: { id: sourceId }
@@ -1509,8 +1537,10 @@ var CBF_MESSAGING = (function() {
         mutation: result.mutation
       });
 
+      // 🔧 v12.4 L-3 FIX: propagate warnings (M-17 truncation)
       await sendTo(port, sessionId, 'mutationResult', {
-        commandId, success: true, result: result.result
+        commandId, success: true, result: result.result,
+        warnings: result.warnings || []
       });
     } catch (e) {
       err('firefoxMerge failed:', e.message);
@@ -1544,8 +1574,12 @@ var CBF_MESSAGING = (function() {
         mutation: result.mutation
       });
 
+      // 🔧 v12.4 L-3 FIX: propagate warnings (M-17 truncation)
+      // ΠΡΑΓΜΑΤΙΚΟ impact εδώ: source.title από Firefox μπορεί να είναι
+      // >500 chars και να truncate-αριστεί στο firefoxMergeFolders.
       await sendTo(port, sessionId, 'mutationResult', {
-        commandId, success: true, result: result.result
+        commandId, success: true, result: result.result,
+        warnings: result.warnings || []
       });
     } catch (e) {
       err('firefoxMergeFolders failed:', e.message);
@@ -2363,7 +2397,7 @@ var CBF_MESSAGING = (function() {
   }
 
   // ============================================================
-  //  HANDLERS REGISTRY (36 — v12.1 / v12.2 / v12.3)
+  //  HANDLERS REGISTRY (36 — v12.1 / v12.2 / v12.3 / v12.4)
   // ============================================================
   const HANDLERS = {
     // Read (8)
@@ -2487,6 +2521,7 @@ var CBF_MESSAGING = (function() {
       try { port.disconnect(); } catch (_) {}
       return;
     }
+
     const tabId = port.sender?.tab?.id ?? null;
     const frameId = port.sender?.frameId ?? null;
 
@@ -2626,8 +2661,10 @@ var CBF_MESSAGING = (function() {
   async function notifyEpochRotation(sessionId) {
     const port = CBF_SESSION.getPortBySession(sessionId);
     if (!port) return false;
+
     const session = CBF_SESSION.getSession(sessionId);
     if (!session) return false;
+
     try {
       port.postMessage({
         type: 'epochRotated',
@@ -2667,6 +2704,7 @@ var CBF_MESSAGING = (function() {
     rotateEpochAndNotify,
     rotateAllEpochsAndNotify,
     notifyEpochRotation,
+
     _internal: {
       sanitizeBroadcastNode: _sanitizeBroadcastNode,
       sanitizeBroadcastMutation: _sanitizeBroadcastMutation,
@@ -2707,11 +2745,12 @@ var CBF_MESSAGING = (function() {
   if (typeof globalThis !== 'undefined') globalThis.CBF_MESSAGING = api;
 
   if (typeof CBF_LOGGER !== 'undefined') {
-        CBF_LOGGER.info(
-      'Messaging ready (v12.3.0: 36 handlers — read + open + encrypted + firefox + cross-space + ' +
+    CBF_LOGGER.info(
+      'Messaging ready (v12.4.0: 36 handlers — read + open + encrypted + firefox + cross-space + ' +
       'export + import + lock + openOptionsPage — BUG-1 unfiled_____ fix + ISSUE-1 native options handler + ' +
-      'CPU-10 serialized broadcast + importFavicons negative-cache fix)'
+      'CPU-10 serialized broadcast + importFavicons negative-cache fix + L-3 warnings propagation)'
     );
   }
+
   return api;
 })();

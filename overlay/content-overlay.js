@@ -2,8 +2,8 @@
  * content-overlay.js — Injected Overlay Entry Point
  *
  * @path     overlay/content-overlay.js
- * @version  12.3.0
- * @since    v12E / v12.3
+ * @version  12.5.0
+ * @since    v12E / v12.5
  *
  * PURPOSE
  *   Content script entry point. Δημιουργεί το #cbf-overlay-host,
@@ -24,8 +24,6 @@
  *   • v1.5.4: Persistent last space (cbf_lastSpace)
  *
  * NON-OBVIOUS
- *   • Το SIGNATURE_DATA_URI είναι placeholder — αντικαθίσταται
- *     χειροκίνητα με το πραγματικό base64 SVG string.
  *   • Το host element έχει pointer-events:none, αλλά το
  *     .win7-aero έχει pointer-events:auto (C3 fix).
  *   • Το pagehide cleanup ΔΕΝ κάνει slideDown — instant remove.
@@ -33,12 +31,26 @@
  * DECISIONS
  *   D-13.1, D-23.1, D-42, D-46, D-47, D-49, D-51..D-56
  *
- * CHANGELOG v12.3.0 (2026-09-28) — COSMETIC VERSION BUMP
+ * CHANGELOG
+ * ══════════════════════════════════════════════════════════════════════
+ * v12.5.0 (2026-10-28) — LARGE FAVICON SUPPORT (version alignment)
+ * ══════════════════════════════════════════════════════════════════════
+ *   • Version tag στο DOM: v12.4E → v12.5E
+ *   • 0 functional changes — μόνο display text (consistency με release)
+ *   • Υποστηρίζει 200KB favicons μέσω του ui-controller (v12.5.0)
+ * ══════════════════════════════════════════════════════════════════════
+ * v12.4.0 (2026-10-27) — H-2 FIX: DOM version tag typo
+ * ══════════════════════════════════════════════════════════════════════
+ *   • Version tag στο DOM: v12.32E → v12.4E
+ *   • 0 functional changes — μόνο display text
+ * ══════════════════════════════════════════════════════════════════════
+ * v12.3.0 (2026-09-28) — COSMETIC VERSION BUMP
+ * ══════════════════════════════════════════════════════════════════════
  *   • Version tag στο DOM: v12.2E → v12.3E (consistency με release)
  *   • 0 functional changes — μόνο display text
- *
- * CHANGELOG v12.2.0 (2026-09-26) — LOW-END HARDWARE OPTIMIZATION
- *   ═══════════════════════════════════════════════════════════════════
+ * ══════════════════════════════════════════════════════════════════════
+ * v12.2.0 (2026-09-26) — LOW-END HARDWARE OPTIMIZATION
+ * ══════════════════════════════════════════════════════════════════════
  *   Adaptive performance (Tier 2 — zero functional regression):
  *     • CPU-06: _IS_LOW_END detection (hardwareConcurrency/deviceMemory)
  *     • CPU-07: MUTATION_REFRESH_THROTTLE adaptive (500ms low / 200ms high)
@@ -49,7 +61,7 @@
  *   Latency optimizations (Tier 1):
  *     • LAT-01: Status cache warm-up στο bootstrap (μειώνει το 1ο
  *       getStatus round-trip μετά το open)
- *   ═══════════════════════════════════════════════════════════════════
+ * ══════════════════════════════════════════════════════════════════════
  *
  * FULL HISTORY
  *   → docs/ECBF-Manual.html → search "content-overlay"
@@ -58,7 +70,7 @@
 (function() {
   'use strict';
 
-  console.log('[ECBF:ContentOverlay] Bootstrap v12.3 (injected, κορμός)');
+  console.log('[ECBF:ContentOverlay] Bootstrap v12.5 (injected, κορμός)');
 
   // ============================================================
   //  ⭐ v12.2 ADAPTIVE DETECTION (must be before any usage)
@@ -305,7 +317,7 @@
 
       <!-- LAYER 1 — Toolbar (+ Search) -->
       <div class="layer1">
-        <span class="version-tag">v12.32E</span>
+        <span class="version-tag">v12.5E</span>
 
         <div class="search-wrapper" id="cbf-search-wrapper">
           <input type="text"
@@ -1586,7 +1598,7 @@
   //  25. Bootstrap
   // ============================================================
   (async function bootstrap() {
-    console.log('[ECBF:ContentOverlay] Bootstrapping (v12.3)');
+    console.log('[ECBF:ContentOverlay] Bootstrapping (v12.5)');
 
     const stillOpen = () => !isClosed;
 
@@ -1802,7 +1814,7 @@
 
       await slideUp();
 
-      console.log(`[ECBF:ContentOverlay] Ready ✓ (v12.3, low-end=${_IS_LOW_END})`);
+      console.log(`[ECBF:ContentOverlay] Ready ✓ (v12.5, low-end=${_IS_LOW_END})`);
 
     } catch (e) {
       if (isClosed) {

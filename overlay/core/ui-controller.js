@@ -2,17 +2,17 @@
  * ui-controller.js — UI controller (carousel + toolbar)
  *
  * @path     overlay/core/ui-controller.js
- * @version  12.3.0
- * @since    v12E / v12.3
+ * @version  12.5.0
+ * @since    v12E / v12.5
  *
  * PURPOSE
  *   Κεντρικός UI controller του overlay. Διαχειρίζεται:
- *     • Layer 1 (toolbar): lock, space switch, search bar, add buttons
- *     • Layer 2 (breadcrumb): home/back + path segments
- *     • Layer 3 (carousel): cards, favicons, hover, selection
- *     • Multi-select: Ctrl/Shift+Click, Ctrl+A, bulk ops
- *     • Keyboard: ArrowLeft/Right, Enter, Escape, Delete
- *     • Navigation: navigateToFolder με race protection (navSeq)
+ *   • Layer 1 (toolbar): lock, space switch, search bar, add buttons
+ *   • Layer 2 (breadcrumb): home/back + path segments
+ *   • Layer 3 (carousel): cards, favicons, hover, selection
+ *   • Multi-select: Ctrl/Shift+Click, Ctrl+A, bulk ops
+ *   • Keyboard: ArrowLeft/Right, Enter, Escape, Delete
+ *   • Navigation: navigateToFolder με race protection (navSeq)
  *
  * KEY CONCEPTS
  *   • Shadow DOM aware (D-13.1)
@@ -27,58 +27,70 @@
  *   D-13.1, D-46, D-52
  *
  * CHANGELOG
- *   ══════════════════════════════════════════════════════════════════════
- *   v12.3.0 (2026-09-28) — MEMORY LEAK FIX + VERSION ALIGNMENT
- *   ══════════════════════════════════════════════════════════════════════
- *   BUG-1 FIX (CRITICAL): _faviconPending unbounded growth
+ * ══════════════════════════════════════════════════════════════════════
+ * v12.5.0 (2026-10-28) — LARGE FAVICON SUPPORT (faviconUpdate listener)
+ * ══════════════════════════════════════════════════════════════════════
+ * ΠΡΟΒΛΗΜΑ:
+ *   Το `faviconUpdate` listener στο _setupFaviconUpdateListener() είχε
+ *   hardcoded `if (dataUrl.length > 50 * 1024) return;` — απέρριπτε
+ *   σιωπηλά multi-res ICO / retina PNG favicons (50-200KB) από broadcasts.
  *
- *     ΠΡΟΒΛΗΜΑ:
- *       Όταν η favicon queue ήταν γεμάτη (_faviconQueue.length >=
- *       MAX_FAVICON_QUEUE = 50), η _enqueueFavicon() έκανε silently
- *       drop το task — ΧΩΡΙΣ να ενημερώσει τον caller.
+ *   Αποτέλεσμα: Ακόμα κι αν το background έστελνε επιτυχώς ένα 100KB
+ *   favicon, το overlay το αγνοούσε → ο χρήστης έβλεπε fallback avatar.
  *
- *       ΑΠΟΤΕΛΕΣΜΑ:
- *         • Το promise στο _fetchFaviconAsync έμενε pending για ΠΑΝΤΑ
- *         • Το _faviconPending Map (χωρίς size bound) γέμιζε
- *           απεριόριστα σε low-end scenarios με γρήγορο scroll
- *         • Κάθε entry ~8KB → memory leak
+ * ΛΥΣΗ:
+ *   Consistency με favicon-service v12.5.0 (MAX_STORAGE_DATAURL_LENGTH):
+ *     • 50 * 1024  →  200 * 1024  (200KB)
  *
- *     ΛΥΣΗ:
- *       • _enqueueFavicon() επιστρέφει boolean (true = enqueued)
- *       • _fetchFaviconAsync() ελέγχει το return value
- *       • Αν !enqueued → resolve(null) αμέσως (no fetch, no leak)
- *
- *   VERSION ALIGNMENT:
- *     • @version 12.2.0 → 12.3.0 (sync με manifest 12.2+ baseline)
- *     • Διορθώθηκαν stale v12.2.x references σε docs/comments
- *     • Δεν υπάρχουν functional changes πέραν του BUG-1
- *
- *   ══════════════════════════════════════════════════════════════════════
- *   v12.2.0 (2026-09-26) — LOW-END HARDWARE OPTIMIZATION
- *   ══════════════════════════════════════════════════════════════════════
- *   Memory fixes (Tier 1 — zero regression risk):
- *     • MEM-01: Bounded _faviconCache (300 entries, LRU eviction)
- *     • MEM-02: Bounded _faviconColorCache (300 entries, LRU)
- *     • MEM-03: Bounded _faviconRetries (100 entries, LRU)
- *     • MEM-04: Bounded folderNameCache (1000 entries, LRU)
- *     • MEM-05: Bounded _faviconQueue (50 entries, backpressure drop)
- *     • MEM-06: Fix destroy() — folderNameCache + search caches + flags
- *
- *   CPU/GPU adaptive (Tier 2 — low-end smooth operation):
- *     • CPU-01: _IS_LOW_END detection (hardwareConcurrency/deviceMemory)
- *     • CPU-02: Adaptive favicon concurrency (2 low-end / 3 high-end)
- *     • CPU-03: Adaptive inter-favicon delay (30ms / 100ms)
- *     • CPU-04: Skip canvas dominant color extraction σε low-end
- *     • CPU-05: Coalesced scroll → arrows update (RAF single-flight)
- *
- *   Race protection:
- *     • RACE-01: navigateToFolder space-change guard (abort stale nav)
- *   ══════════════════════════════════════════════════════════════════════
+ * Impact:
+ *   • ✅ faviconUpdate δέχεται 200KB favicons από broadcasts
+ *   • ✅ Consistency με favicon-service + import-service + export-service
+ *   • ✅ Zero regression (πραγματικά > 200KB δεν θα φτάσουν ποτέ εδώ —
+ *     το favicon-service τα κάνει resize πριν broadcast)
+ * ══════════════════════════════════════════════════════════════════════
+ * v12.3.0 (2026-09-28) — MEMORY LEAK FIX + VERSION ALIGNMENT
+ * ══════════════════════════════════════════════════════════════════════
+ * BUG-1 FIX (CRITICAL): _faviconPending unbounded growth
+ *   ΠΡΟΒΛΗΜΑ:
+ *     Όταν η favicon queue ήταν γεμάτη (_faviconQueue.length >=
+ *     MAX_FAVICON_QUEUE = 50), η _enqueueFavicon() έκανε silently
+ *     drop το task — ΧΩΡΙΣ να ενημερώσει τον caller.
+ *     ΑΠΟΤΕΛΕΣΜΑ:
+ *       • Το promise στο _fetchFaviconAsync έμενε pending για ΠΑΝΤΑ
+ *       • Το _faviconPending Map (χωρίς size bound) γέμιζε
+ *         απεριόριστα σε low-end scenarios με γρήγορο scroll
+ *       • Κάθε entry ~8KB → memory leak
+ *   ΛΥΣΗ:
+ *     • _enqueueFavicon() επιστρέφει boolean (true = enqueued)
+ *     • _fetchFaviconAsync() ελέγχει το return value
+ *     • Αν !enqueued → resolve(null) αμέσως (no fetch, no leak)
+ * VERSION ALIGNMENT:
+ *   • @version 12.2.0 → 12.3.0 (sync με manifest 12.2+ baseline)
+ *   • Διορθώθηκαν stale v12.2.x references σε docs/comments
+ *   • Δεν υπάρχουν functional changes πέραν του BUG-1
+ * ══════════════════════════════════════════════════════════════════════
+ * v12.2.0 (2026-09-26) — LOW-END HARDWARE OPTIMIZATION
+ * ══════════════════════════════════════════════════════════════════════
+ * Memory fixes (Tier 1 — zero regression risk):
+ *   • MEM-01: Bounded _faviconCache (300 entries, LRU eviction)
+ *   • MEM-02: Bounded _faviconColorCache (300 entries, LRU)
+ *   • MEM-03: Bounded _faviconRetries (100 entries, LRU)
+ *   • MEM-04: Bounded folderNameCache (1000 entries, LRU)
+ *   • MEM-05: Bounded _faviconQueue (50 entries, backpressure drop)
+ *   • MEM-06: Fix destroy() — folderNameCache + search caches + flags
+ * CPU/GPU adaptive (Tier 2 — low-end smooth operation):
+ *   • CPU-01: _IS_LOW_END detection (hardwareConcurrency/deviceMemory)
+ *   • CPU-02: Adaptive favicon concurrency (2 low-end / 3 high-end)
+ *   • CPU-03: Adaptive inter-favicon delay (30ms / 100ms)
+ *   • CPU-04: Skip canvas dominant color extraction σε low-end
+ *   • CPU-05: Coalesced scroll → arrows update (RAF single-flight)
+ * Race protection:
+ *   • RACE-01: navigateToFolder space-change guard (abort stale nav)
+ * ══════════════════════════════════════════════════════════════════════
  *
  * FULL HISTORY
  *   → docs/ECBF-Manual.html → search "ui-controller"
  */
-
 var CBF_UI = (function() {
   'use strict';
 
@@ -186,7 +198,6 @@ var CBF_UI = (function() {
 
   // V12E_7_C3 D: Navigate listeners
   const _navigateListeners = [];
-
   const MAX_MISSING_IDS_RETURNED = 50;
   let _faviconUpdateListenerRegistered = false;
 
@@ -232,24 +243,16 @@ var CBF_UI = (function() {
   // ============================================================
   //  Logging
   // ============================================================
-  function log(...a)  {
-    if (typeof CBF_LOGGER !== 'undefined') CBF_LOGGER.info('[UI]', ...a);
-    else console.log('[UI]', ...a);
-  }
-  function warn(...a) {
-    if (typeof CBF_LOGGER !== 'undefined') CBF_LOGGER.warn('[UI]', ...a);
-    else console.warn('[UI]', ...a);
-  }
-  function err(...a) {
-    if (typeof CBF_LOGGER !== 'undefined') CBF_LOGGER.error('[UI]', ...a);
-    else console.error('[UI]', ...a);
-  }
+  function log(...a)  { if (typeof CBF_LOGGER !== 'undefined') CBF_LOGGER.info('[UI]', ...a); else console.log('[UI]', ...a); }
+  function warn(...a) { if (typeof CBF_LOGGER !== 'undefined') CBF_LOGGER.warn('[UI]', ...a); else console.warn('[UI]', ...a); }
+  function err(...a) { if (typeof CBF_LOGGER !== 'undefined') CBF_LOGGER.error('[UI]', ...a); else console.error('[UI]', ...a); }
 
   // ============================================================
   //  URL sanitization
   // ============================================================
-  function _sanitizeUrlForDisplay(url) {
+  function sanitizeUrlForDisplay(url) {
     if (typeof url !== 'string' || url.length === 0) return '(empty)';
+
     const specialSchemes = [
       'about', 'chrome', 'moz-extension', 'data', 'file',
       'javascript', 'blob', 'view-source', 'resource', 'ws', 'wss'
@@ -259,6 +262,7 @@ var CBF_UI = (function() {
       const scheme = schemeMatch[1].toLowerCase();
       if (specialSchemes.includes(scheme)) return `(${scheme}:…)`;
     }
+
     try {
       const u = new URL(url);
       const host = u.hostname || 'unknown';
@@ -285,6 +289,7 @@ var CBF_UI = (function() {
   function _getAvatarColor(url) {
     const h = _getHostname(url);
     if (!h) return '#888';
+
     let hash = 5381;
     for (let i = 0; i < h.length; i++) {
       hash = ((hash << 5) + hash) + h.charCodeAt(i);
@@ -297,6 +302,7 @@ var CBF_UI = (function() {
     if (!url) return 'hsla(0,0%,70%,0.35)';
     const h = _getHostname(url);
     if (!h) return 'hsla(0,0%,70%,0.35)';
+
     let hash = 5381;
     for (let i = 0; i < h.length; i++) {
       hash = ((hash << 5) + hash) + h.charCodeAt(i);
@@ -422,11 +428,13 @@ var CBF_UI = (function() {
   function _applyFavicon(iconDiv, fallbackAvatar, dataUrl) {
     if (!iconDiv || !fallbackAvatar) return;
     if (fallbackAvatar.parentNode !== iconDiv) return;
+
     const img = document.createElement('img');
     img.src = dataUrl; img.alt = '';
     img.style.cssText = `
       width: 100%; height: 100%; object-fit: contain; border-radius: 10px;
-      background: rgba(255,255,255,0.6); border: 1px solid rgba(255,255,255,0.8);
+      background: rgba(255,255,255,0.6);
+      border: 1px solid rgba(255,255,255,0.8);
       box-shadow: 0 2px 6px rgba(0,0,0,0.1);
     `;
     img.addEventListener('error', () => {
@@ -458,6 +466,7 @@ var CBF_UI = (function() {
         }
         return;
       }
+
       let promise = _faviconPending.get(hostname);
       if (!promise) {
         promise = new Promise((resolve) => {
@@ -478,6 +487,7 @@ var CBF_UI = (function() {
         _faviconPending.set(hostname, promise);
         promise.finally(() => { _faviconPending.delete(hostname); });
       }
+
       const dataUrl = await promise;
       if (dataUrl) {
         _applyFavicon(iconDiv, fallbackAvatar, dataUrl);
@@ -490,19 +500,24 @@ var CBF_UI = (function() {
   async function _doFetchFavicon(url, hostname) {
     if (typeof CBF_BRIDGE === 'undefined' ||
         typeof CBF_BRIDGE.getFavicon !== 'function') return null;
+
     let attempt = (_faviconRetries.get(hostname) || 0);
+
     try {
       const res = await CBF_BRIDGE.getFavicon(url);
       if (res && typeof res.dataUrl === 'string' && res.dataUrl.length > 0) {
         // 🔧 v12.2: bounded
         _boundedMapSet(_faviconCache, hostname, res.dataUrl, MAX_FAVICON_CACHE_SIZE);
         _faviconRetries.delete(hostname);
+
         const color = await _extractDominantColor(res.dataUrl);
         // 🔧 v12.2: bounded
         _boundedMapSet(_faviconColorCache, hostname, color, MAX_OVERLAY_FAVICON_CACHE);
+
         log(`Favicon loaded: ${hostname}${color ? ` (color: ${color})` : ''}`);
         return res.dataUrl;
       }
+
       const errMsg = String(res?.error || '');
       if (/RATE_LIMITED|COMMAND_LIMIT|COOLDOWN/i.test(errMsg)) {
         if (attempt < _FAVICON_MAX_RETRIES) {
@@ -517,35 +532,57 @@ var CBF_UI = (function() {
         warn(`Favicon gave up after ${_FAVICON_MAX_RETRIES} retries: ${hostname}`);
         return null;
       }
+
       // 🔧 v12.2: bounded (null = negative cache)
       _boundedMapSet(_faviconCache, hostname, null, MAX_FAVICON_CACHE_SIZE);
       _faviconRetries.delete(hostname);
       log(`Favicon unavailable: ${hostname} (${errMsg || 'no dataUrl'})`);
       return null;
+
     } catch (e) {
       warn(`Favicon fetch error for ${hostname}:`, e.message);
       return null;
     }
   }
 
+  // ═══════════════════════════════════════════════════════════
+  //  🔧 v12.5.0: faviconUpdate listener
+  //
+  //  Δέχεται broadcasts από το background με νέα favicons (π.χ. από
+  //  passive capture ή import). Το limit είναι 200KB — consistency
+  //  με favicon-service MAX_STORAGE_DATAURL_LENGTH (v12.5.0).
+  //
+  //  Πριν (v12.3): 50KB → απέρριπτε multi-res ICO (50-150KB) και
+  //                retina PNG (100-200KB) σιωπηλά.
+  //  Μετά (v12.5): 200KB → δέχεται όλα όσα περνούν από το
+  //                favicon-service storage (δεν υπάρχουν > 200KB
+  //                γιατί γίνονται resize).
+  // ═══════════════════════════════════════════════════════════
   function _setupFaviconUpdateListener() {
     if (_faviconUpdateListenerRegistered) return;
     if (typeof CBF_BRIDGE === 'undefined' || typeof CBF_BRIDGE.on !== 'function') return;
+
     CBF_BRIDGE.on('faviconUpdate', (event) => {
       try {
         if (!event || typeof event !== 'object') return;
         const { hostname, dataUrl, color } = event;
+
         if (typeof hostname !== 'string' || hostname.length === 0 || hostname.length > 253) return;
         if (typeof dataUrl !== 'string' || !dataUrl.startsWith('data:image/')) return;
-        if (dataUrl.length > 50 * 1024) return;   // V12E.E-FAVICON-01
+        // 🔧 v12.5.0: 50KB → 200KB (consistency με favicon-service)
+        if (dataUrl.length > 200 * 1024) return;
+
         let validColor = null;
         if (typeof color === 'string' && color.startsWith('rgb')) validColor = color;
+
         log(`faviconUpdate: received ${hostname}${validColor ? ` (color: ${validColor})` : ''}`);
+
         // 🔧 v12.2: bounded
         _boundedMapSet(_faviconCache, hostname, dataUrl, MAX_FAVICON_CACHE_SIZE);
         if (validColor) {
           _boundedMapSet(_faviconColorCache, hostname, validColor, MAX_OVERLAY_FAVICON_CACHE);
         }
+
         if (!elements.layer3) return;
         const cards = elements.layer3.querySelectorAll('.card');
         let updatedCount = 0;
@@ -554,8 +591,10 @@ var CBF_UI = (function() {
           if (!cardId) continue;
           const item = currentItems.find(i => i.id === cardId);
           if (!item || !item.url) continue;
+
           const cardHostname = _getHostname(item.url);
           if (cardHostname !== hostname) continue;
+
           const iconDiv = card.querySelector('.card-icon');
           const avatar = iconDiv?.querySelector('.card-avatar');
           if (iconDiv && avatar) _applyFavicon(iconDiv, avatar, dataUrl);
@@ -563,8 +602,10 @@ var CBF_UI = (function() {
           updatedCount++;
         }
         if (updatedCount > 0) log(`faviconUpdate: applied to ${updatedCount} card(s)`);
+
       } catch (e) { err('faviconUpdate error:', e.message); }
     });
+
     _faviconUpdateListenerRegistered = true;
     log('faviconUpdate listener registered');
   }
@@ -638,6 +679,7 @@ var CBF_UI = (function() {
 
   function _updateSelectionBadge() {
     const count = CBF_SELECTION_MANAGER.getPendingIds().length;
+
     if (elements.bulkLock && elements.bulkCount) {
       if (count >= 2) {
         elements.bulkCount.textContent = String(count);
@@ -646,10 +688,12 @@ var CBF_UI = (function() {
         elements.bulkLock.classList.remove('visible');
       }
     }
+
     if (elements.selectionInfo && elements.selectionText) {
       if (count >= 2) {
         elements.selectionText.textContent = `${count} επιλεγμένα`;
         elements.selectionInfo.classList.add('visible');
+
         if (_selectionInfoTimer) clearTimeout(_selectionInfoTimer);
         _selectionInfoTimer = setTimeout(() => {
           if (elements.selectionInfo) elements.selectionInfo.classList.remove('visible');
@@ -669,6 +713,7 @@ var CBF_UI = (function() {
     if (!id) return;
     const ids = CBF_SELECTION_MANAGER.getPendingIds();
     const has = ids.includes(id);
+
     if (has) {
       const next = ids.filter(x => x !== id);
       if (next.length === 0) CBF_SELECTION_MANAGER.clear();
@@ -685,9 +730,11 @@ var CBF_UI = (function() {
     const fromIdx = currentItems.findIndex(i => i.id === fromId);
     const toIdx = currentItems.findIndex(i => i.id === toId);
     if (fromIdx === -1 || toIdx === -1) return;
+
     const [start, end] = fromIdx <= toIdx ? [fromIdx, toIdx] : [toIdx, fromIdx];
     const rangeIds = [];
     for (let i = start; i <= end; i++) rangeIds.push(currentItems[i].id);
+
     if (rangeIds.length === 0) CBF_SELECTION_MANAGER.clear();
     else if (rangeIds.length === 1) CBF_SELECTION_MANAGER.set(rangeIds[0]);
     else CBF_SELECTION_MANAGER.setMultiple(rangeIds);
@@ -778,6 +825,7 @@ var CBF_UI = (function() {
   function _scrollToMiddle() {
     if (!elements.layer3) return;
     const layer3 = elements.layer3;
+
     const tryScroll = (attempt = 0) => {
       const maxScroll = layer3.scrollWidth - layer3.clientWidth;
       let desired = maxScroll / 2;
@@ -915,6 +963,7 @@ var CBF_UI = (function() {
         const unlocked = await ensureVaultUnlocked('για μαζική διαγραφή');
         if (!unlocked) return;
       }
+
       const confirmMsg = `Διαγραφή ${ids.length} στοιχείων;\n\nΘα διαγραφούν και τυχόν υπό-φακελοι.`;
       let ok = false;
       if (typeof CBF_MODAL_SERVICE !== 'undefined' && CBF_MODAL_SERVICE.showConfirm) {
@@ -957,6 +1006,7 @@ var CBF_UI = (function() {
       _applySelectionVisuals();
       _updateSelectionBadge();
       _refreshSelectionAfterMutation();
+
       log(`Multi-delete: ${deleted} deleted, ${failed.length} failed, ${allDeletedIds.length} ids for pin check`);
 
       try { await navigateToFolder(currentFolderId, { preservePath: true }); } catch (_) {}
@@ -979,12 +1029,13 @@ var CBF_UI = (function() {
     _actionInProgress = true;
     try {
       const sourceSpace = activeSpace;
-
       const targetSpace = activeSpace === 'firefox' ? 'encrypted' : 'firefox';
+
       if (targetSpace === 'encrypted') {
         const unlocked = await ensureVaultUnlocked('για μαζική μεταφορά');
         if (!unlocked) return;
       }
+
       log(`Multi-transfer: ${items.length} item(s) → ${targetSpace}`);
 
       let success = 0;
@@ -1051,6 +1102,7 @@ var CBF_UI = (function() {
       await navigateToFolder(targetRoot);
 
       log(`Multi-transfer DONE: ${success} OK, ${failed.length} failed (carry=${newIds.length})`);
+
       if (failed.length > 0 && typeof CBF_MODAL_SERVICE !== 'undefined') {
         await CBF_MODAL_SERVICE.showAlert('Μερική μεταφορά',
           `${success} μεταφέρθηκαν, ${failed.length} απέτυχαν.`);
@@ -1063,7 +1115,7 @@ var CBF_UI = (function() {
   // ============================================================
   async function ensureVaultUnlocked(reasonText = 'για αυτή την ενέργεια') {
     if (_unlockPromptInProgress) {
-      while (_unlockPromptInProgress) await new Promise(r => setTimeout(r, 50));
+      while (unlockPromptInProgress) await new Promise(r => setTimeout(r, 50));
       try { const s = await CBF_BRIDGE.getStatus(); return s.unlocked === true; }
       catch (_) { return false; }
     }
@@ -1072,6 +1124,7 @@ var CBF_UI = (function() {
       let status;
       try { status = await CBF_BRIDGE.getStatus(); }
       catch (e) { err('M-16: getStatus failed:', e.message); return false; }
+
       if (status.unlocked) return true;
 
       if (!status.initialized) {
@@ -1126,6 +1179,7 @@ var CBF_UI = (function() {
   function init(shadow, containerEl) {
     shadowRoot = shadow;
     container = containerEl;
+
     if (!container) { err('init: container is required'); return; }
 
     elements = {
@@ -1149,7 +1203,8 @@ var CBF_UI = (function() {
     startResizeObserver();
     updateLayer2();
     _setupFaviconUpdateListener();
-    log(`Initialized (v12.3.0: BUG-1 favicon leak fix + bounded caches + adaptive low-end + search hover breadcrumb + multi-select) — low-end=${_IS_LOW_END}`);
+
+    log(`Initialized (v12.5.0: BUG-1 favicon leak fix + bounded caches + adaptive low-end + search hover breadcrumb + multi-select + 200KB faviconUpdate) — low-end=${_IS_LOW_END}`);
   }
 
   // ============================================================
@@ -1198,6 +1253,7 @@ var CBF_UI = (function() {
       const crumb = e.target.closest('.crumb:not(.current)');
       if (!crumb) return;
       e.stopPropagation(); e.preventDefault();
+
       const fid = crumb.dataset.folderId;
       if (!fid) return;
 
@@ -1250,10 +1306,13 @@ var CBF_UI = (function() {
 
   function _onKeyDown(e) {
     if (!e.isTrusted) return;
+
     if (typeof CBF_MODAL_SERVICE !== 'undefined' &&
         typeof CBF_MODAL_SERVICE.activeCount === 'function' &&
         CBF_MODAL_SERVICE.activeCount() > 0) return;
+
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
     if (isSearchActive) return;
 
     if ((e.ctrlKey || e.metaKey) && (e.key === 'a' || e.key === 'A')) {
@@ -1339,6 +1398,7 @@ var CBF_UI = (function() {
   async function navigateToFolder(folderId, opts = {}) {
     const mySeq = ++_navSeq;
     const startSpace = activeSpace;   // 🔧 v12.2 RACE-01: capture start space
+
     log(`navigateToFolder: ${folderId} (seq=${mySeq}, space=${startSpace})`);
 
     const _preNavPendingIds = CBF_SELECTION_MANAGER.getPendingIds().slice();
@@ -1567,12 +1627,14 @@ var CBF_UI = (function() {
       const hostname = _getHostname(item.url);
       const cachedColor = _faviconColorCache.get(hostname);
       const cachedImg = _faviconCache.get(hostname);
+
       if (cachedColor && cachedColor.startsWith('rgb')) {
         const hsla = _rgbToHsla(cachedColor, 0.35);
         cardColor = hsla || _getColorFromUrl(item.url);
       } else {
         cardColor = _getColorFromUrl(item.url);
       }
+
       if (typeof cachedImg === 'string' && cachedImg.startsWith('data:')) {
         faviconBg = `url("${cachedImg}")`;
       }
@@ -1608,6 +1670,7 @@ var CBF_UI = (function() {
     lockImgEl.alt = activeSpace === 'firefox' ? 'Lock' : 'Unlock';
     lockImgEl.style.cssText = 'width: 16px; height: 16px; pointer-events: none;';
     lockBtn.appendChild(lockImgEl);
+
     lockBtn.addEventListener('click', (e) => {
       e.stopPropagation(); e.preventDefault();
       _transferCard(item);
@@ -1710,8 +1773,10 @@ var CBF_UI = (function() {
         _notifyPinDeleted([item.id]);
         log(`Deleted (firefox): ${item.id}`);
       }
+
     } catch (e) {
       err('_deleteCard failed:', e.message);
+
       if (e.code === 'STALE_GENERATION') {
         try { await navigateToFolder(currentFolderId, { preservePath: true }); } catch (_) {}
       } else if (typeof CBF_BRIDGE.hardReset === 'function') {
@@ -1720,6 +1785,7 @@ var CBF_UI = (function() {
       } else {
         navigateToFolder(currentFolderId);
       }
+
       if (typeof CBF_MODAL_SERVICE !== 'undefined') {
         await CBF_MODAL_SERVICE.showAlert('Σφάλμα', 'Διαγραφή απέτυχε: ' + e.message);
       }
@@ -1751,6 +1817,7 @@ var CBF_UI = (function() {
 
       if (!res || !res.success) {
         let errMsg = res?.error || 'TRANSFER_FAILED';
+
         if (res?.error === 'SCAN_LIMIT_EXCEEDED') {
           const scanReason = res?.details || 'SCAN_ITEM_LIMIT_EXCEEDED';
           if (scanReason === 'SCAN_DEPTH_EXCEEDED') {
@@ -1762,18 +1829,20 @@ var CBF_UI = (function() {
           }
         } else if (res?.details && Array.isArray(res.details) && res.details.length > 0) {
           const preview = res.details.slice(0, 3).map(d =>
-            `• ${_sanitizeUrlForDisplay(d.url) || '(χωρίς URL)'} — ${d.reason || 'invalid'}`).join('\n');
+            `• ${sanitizeUrlForDisplay(d.url) || '(χωρίς URL)'} — ${d.reason || 'invalid'}`).join('\n');
           errMsg = `Ο φάκελος περιέχει ${res.details.length} μη έγκυρα URL(s):\n\n${preview}`;
           if (res.details.length > 3) errMsg += `\n... και ${res.details.length - 3} ακόμα`;
         } else if (res?.details && typeof res.details === 'string') {
           errMsg += ': ' + res.details;
         }
+
         throw new Error(errMsg);
       }
 
       _notifyPinTransferred(sourceSpace, item.id);
 
       log(`Transferred ${item.id} → ${targetSpace}`);
+
       await CBF_BRIDGE.setActiveSpace(targetSpace);
       setActiveSpace(targetSpace);
 
@@ -1803,6 +1872,7 @@ var CBF_UI = (function() {
             (res.warnings.length > 5 ? `\n... και ${res.warnings.length - 5} ακόμα` : ''));
         }
       }
+
     } catch (e) {
       err('_transferCard failed:', e.message);
       if (typeof CBF_MODAL_SERVICE !== 'undefined') {
@@ -1836,7 +1906,7 @@ var CBF_UI = (function() {
     if (!item || item.type !== 'bookmark') return;
 
     const url = item.url;
-    const sanitized = _sanitizeUrlForDisplay(url);
+    const sanitized = sanitizeUrlForDisplay(url);
 
     if (!url || typeof url !== 'string') {
       warn(`_openBookmarkInCurrentTab: no URL for ${item.id}`);
@@ -1950,19 +2020,23 @@ var CBF_UI = (function() {
   // ============================================================
   function _moveSelection(delta) {
     _clearHover();
+
     if (currentItems.length === 0) {
       selectedIndex = -1;
       _updateArrowsForSelection();
       log(`_moveSelection(${delta}): empty list`);
       return;
     }
+
     if (selectedIndex === -1) { selectedIndex = 0; }
     else {
       selectedIndex += delta;
       if (selectedIndex < 0) selectedIndex = 0;
       if (selectedIndex >= currentItems.length) selectedIndex = currentItems.length - 1;
     }
+
     log(`_moveSelection(${delta}): idx=${selectedIndex}/${currentItems.length}`);
+
     _updateCardHighlight();
     _scrollToSelected();
     _updateArrowsForSelection();
@@ -1972,10 +2046,13 @@ var CBF_UI = (function() {
     if (!elements.layer3) return;
     const cards = elements.layer3.querySelectorAll('.card');
     cards.forEach(c => c.classList.remove('card-center'));
+
     if (selectedIndex < 0 || selectedIndex >= currentItems.length) return;
     if (hoveredIndex !== -1) return;
+
     const item = currentItems[selectedIndex];
     if (!item) return;
+
     const card = elements.layer3.querySelector(`.card[data-id="${item.id}"]`);
     if (card) card.classList.add('card-center');
   }
@@ -1984,10 +2061,13 @@ var CBF_UI = (function() {
     if (selectedIndex === -1 || currentItems.length === 0) return;
     const layer3 = elements.layer3;
     if (!layer3) return;
+
     const item = currentItems[selectedIndex];
     if (!item) return;
+
     const card = layer3.querySelector(`.card[data-id="${item.id}"]`);
     if (!card) return;
+
     const tryScroll = (attempt = 0) => {
       const offset = card.offsetLeft;
       const width  = card.offsetWidth;
@@ -2019,6 +2099,7 @@ var CBF_UI = (function() {
   // ============================================================
   function _setHoveredCard(cardElement, index) {
     if (hoveredIndex === index) return;
+
     if (hoveredCardElement) hoveredCardElement.classList.remove('card-center');
     hoveredIndex = index;
     hoveredCardElement = cardElement;
@@ -2042,8 +2123,8 @@ var CBF_UI = (function() {
   // ============================================================
   function search(query) {
     if (typeof query !== 'string' || query.trim() === '') return;
-    isSearchActive = true;
 
+    isSearchActive = true;
     _clearSelection();
     _applySelectionVisuals();
     _updateSelectionBadge();
@@ -2079,7 +2160,6 @@ var CBF_UI = (function() {
     if (!Array.isArray(results)) results = [];
 
     isSearchActive = true;
-
     _clearSelection();
     _applySelectionVisuals();
     _updateSelectionBadge();
@@ -2121,6 +2201,7 @@ var CBF_UI = (function() {
     currentSearchQuery = '';
     if (elements.searchBar) elements.searchBar.value = '';
     if (elements.searchClear) elements.searchClear.style.display = 'none';
+
     currentItems = originalItems.slice();
     selectedIndex = currentItems.length > 0 ? 0 : -1;
     _clearHover();
@@ -2182,15 +2263,19 @@ var CBF_UI = (function() {
   // ============================================================
   function getSelectedItemIdsInOrder() {
     const pendingIds = CBF_SELECTION_MANAGER.getPendingIds();
+
     if (!Array.isArray(pendingIds) || pendingIds.length === 0) {
       return { ids: [], missingIds: [], totalMissing: 0, hasMissing: false };
     }
+
     const visibleIds = new Set(currentItems.map(i => i.id));
     const ids = [], missingIds = [];
+
     for (const id of pendingIds) {
       if (visibleIds.has(id)) ids.push(id);
       else missingIds.push(id);
     }
+
     const orderMap = new Map();
     currentItems.forEach((item, idx) => orderMap.set(item.id, idx));
     ids.sort((a, b) => {
@@ -2198,15 +2283,18 @@ var CBF_UI = (function() {
       const ib = orderMap.get(b) ?? Infinity;
       return ia - ib;
     });
+
     const totalMissing = missingIds.length;
     const missingIdsCapped = missingIds.slice(0, MAX_MISSING_IDS_RETURNED);
     const wasCapped = totalMissing > MAX_MISSING_IDS_RETURNED;
     const hasMissing = totalMissing > 0;
+
     if (hasMissing) {
-      warn(`getSelectedItemIdsInOrder: ${ids.length} visible, ${totalMissing} cross-folder` +
-        (wasCapped ? ` (returning first ${MAX_MISSING_IDS_RETURNED})` : '') +
+      warn(`getSelectedItemIdsInOrder: ${ids.length} visible, ${totalMissing} cross-folder ` +
+        (wasCapped ? `(returning first ${MAX_MISSING_IDS_RETURNED})` : '') +
         ` [${missingIdsCapped.slice(0, 3).join(', ')}${missingIdsCapped.length > 3 ? '...' : ''}]`);
     }
+
     return { ids, missingIds: missingIdsCapped, totalMissing, hasMissing };
   }
 
@@ -2228,8 +2316,8 @@ var CBF_UI = (function() {
     selectedIndex = -1;
     _clearHover();
     _clearSelection();
-    _navSeq = 0;
 
+    _navSeq = 0;
     _pendingCenterScroll = true;
 
     _clearSearchBreadcrumbState();
@@ -2242,6 +2330,7 @@ var CBF_UI = (function() {
 
     log(`setActiveSpace: ${activeSpace} (navSeq reset, pendingCenterScroll=true)`);
   }
+
   function getActiveSpace() { return activeSpace; }
 
   // ============================================================
@@ -2289,6 +2378,7 @@ var CBF_UI = (function() {
   // ============================================================
   function destroy() {
     log('destroy');
+
     if (resizeObserver) { resizeObserver.disconnect(); resizeObserver = null; }
     document.removeEventListener('keydown', _onKeyDown);
 
@@ -2328,6 +2418,7 @@ var CBF_UI = (function() {
     container = null;
     currentItems = [];
     originalItems = [];
+
     log('destroy complete (all caches + flags cleared)');
   }
 
@@ -2336,12 +2427,14 @@ var CBF_UI = (function() {
   // ============================================================
   function applyLocalMoveSingle(itemId, targetFolderId, position = 'inside', targetId = null) {
     log(`applyLocalMoveSingle: ${itemId} → ${targetFolderId} (${position}${targetId ? ' @ ' + targetId : ''})`);
+
     const sourceIdx = currentItems.findIndex(i => i.id === itemId);
     if (sourceIdx === -1) return;
 
     if (targetFolderId && targetFolderId !== currentFolderId) {
       currentItems.splice(sourceIdx, 1);
       _removeCardFromDOM(itemId);
+
       if (currentItems.length === 0) {
         selectedIndex = -1;
         CBF_SELECTION_MANAGER.clear();
@@ -2349,6 +2442,7 @@ var CBF_UI = (function() {
         selectedIndex = Math.min(sourceIdx, currentItems.length - 1);
         CBF_SELECTION_MANAGER.set(currentItems[selectedIndex]?.id || null);
       }
+
       _updateCardHighlight();
       _updateArrowsForSelection();
       return;
@@ -2389,12 +2483,14 @@ var CBF_UI = (function() {
 
   function applyLocalMoveMultiple(itemIds, targetFolderId, position = 'inside', targetId = null) {
     log(`applyLocalMoveMultiple: [${itemIds.join(',')}] → ${targetFolderId} (${position})`);
+
     if (!Array.isArray(itemIds) || itemIds.length === 0) return;
 
     if (targetFolderId && targetFolderId !== currentFolderId) {
       const toRemove = new Set(itemIds);
       currentItems = currentItems.filter(i => !toRemove.has(i.id));
       for (const id of itemIds) _removeCardFromDOM(id);
+
       selectedIndex = currentItems.length > 0 ? 0 : -1;
       CBF_SELECTION_MANAGER.clear();
       renderLayer3();
@@ -2487,10 +2583,7 @@ var CBF_UI = (function() {
   //  Public API
   // ============================================================
   const api = {
-    init,
-    destroy,
-    reset,
-    resetKeepBreadcrumb,
+    init, destroy, reset, resetKeepBreadcrumb,
 
     navigateToFolder,
     renderLayer3,
@@ -2572,8 +2665,8 @@ var CBF_UI = (function() {
       FAVICON_INTER_REQUEST_DELAY: _FAVICON_INTER_REQUEST_DELAY
     },
 
-    // 🔧 v12.3.0: version constant
-    _VERSION: '12.3.0',
+    // 🔧 v12.5.0: version constant
+    _VERSION: '12.5.0',
 
     _internal: {
       _createCardElement,
@@ -2594,7 +2687,7 @@ var CBF_UI = (function() {
       _getAvatarColor,
       _getColorFromUrl,
       _solidColor,
-      _sanitizeUrlForDisplay,
+      sanitizeUrlForDisplay,
 
       // 🔧 v12.2: LRU helper exposed για tests
       _boundedMapSet,
@@ -2684,13 +2777,14 @@ var CBF_UI = (function() {
   if (typeof globalThis !== 'undefined') globalThis.CBF_UI = api;
 
   log(
-    `Ready (v12.3.0: BUG-1 favicon leak fix + bounded caches + adaptive low-end (isLowEnd=${_IS_LOW_END}) + ` +
+    `Ready (v12.5.0: BUG-1 favicon leak fix + bounded caches + adaptive low-end (isLowEnd=${_IS_LOW_END}) + ` +
     `search hover breadcrumb + D-52 openInCurrentTab + Multi-Select + ` +
     `setSearchResults + HOME-FIX + PIN-AUTO-UNPIN + PIN-AUTO-UNPIN-ON-TRANSFER + ` +
-    `RACE-01 space-change guard + MEM-06 destroy leak fix)`
+    `RACE-01 space-change guard + MEM-06 destroy leak fix + ` +
+    `200KB faviconUpdate limit)`
   );
 
   return api;
 })();
 
-console.log('[ECBF:UI] Ready (v12.3.0: MEM-01..06 bounded caches + CPU-01..05 adaptive + RACE-01 guard + BUG-1 favicon leak fix)');
+console.log('[ECBF:UI] Ready (v12.5.0: MEM-01..06 bounded caches + CPU-01..05 adaptive + RACE-01 guard + BUG-1 favicon leak fix + 200KB faviconUpdate)');

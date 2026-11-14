@@ -1,17 +1,16 @@
 /**
  * background.js — Background Bootstrap (MV3 Event Page)
- *
  * @path     background/background.js
- * @version  12.3.0
- * @since    v12E / v12.3
+ * @version  12.5.0
+ * @since    v12E / v12.5
  *
  * PURPOSE
  *   Κεντρικό bootstrap του background:
- *     • Φορτώνει FSM, mutation registry, projection
- *     • Εγγράφει listeners (onConnect, onMessage, onInstalled, action)
- *     • Περιοδικούς ελέγχους ακεραιότητας (stateMAC 60s, Merkle 300s)
- *     • Rate limiter cleanup interval
- *     • onSuspend cleanup (MV3 lifecycle)
+ *   • Φορτώνει FSM, mutation registry, projection
+ *   • Εγγράφει listeners (onConnect, onMessage, onInstalled, action)
+ *   • Περιοδικούς ελέγχους ακεραιότητας (stateMAC 60s, Merkle 300s)
+ *   • Rate limiter cleanup interval
+ *   • onSuspend cleanup (MV3 lifecycle)
  *
  * KEY CONCEPTS
  *   • INJECTED_SCRIPTS (24) — σειρά φόρτωσης overlay scripts
@@ -32,53 +31,67 @@
  *   D-13.1, D-23.1, D-24.1, D-27, D-31, D-32
  *
  * CHANGELOG
- *   ══════════════════════════════════════════════════════════════════════
- *   v12.3.0 (2026-09-28) — RATE LIMITER CONFIG VERIFICATION
- *   ══════════════════════════════════════════════════════════════════════
- *   FIX-6 (LOW): Startup verification ότι όλα τα HANDLERS έχουν
- *   PER_COMMAND rate limit entry.
+ * ══════════════════════════════════════════════════════════════════════
+ * v12.5.0 (2026-10-28) — LARGE FAVICON SUPPORT
+ * ══════════════════════════════════════════════════════════════════════
+ * ΠΡΟΒΛΗΜΑ:
+ *   Με MAX_DATAURL_LENGTH=50KB στο favicon-service, τα import handlers
+ *   είχαν το ίδιο 50KB limit στο `importFaviconsSimple`. Αυτό σήμαινε
+ *   ότι ακόμα και τα multi-res ICO (50-150KB) απορρίπτονταν σιωπηλά.
  *
- *     ΠΡΟΒΛΗΜΑ:
- *       Το rate-limiter.js::check() returns { allowed: true } για
- *       unknown commands — silent bypass. Αν κάποιος προσθέσει νέο
- *       handler στο messaging.js αλλά ξεχάσει το PER_COMMAND, ο
- *       handler λειτουργεί ΧΩΡΙΣ rate limiting (DoS risk).
+ * ΛΥΣΗ:
+ *   Consistency με favicon-service v12.5.0 (MAX_STORAGE_DATAURL_LENGTH):
+ *     • 50 * 1024  →  200 * 1024  (200KB)
  *
- *     ΛΥΣΗ:
- *       Step 7 στο bootstrap:
- *         • Διαβάζει Object.keys(HANDLERS) από messaging.js
- *         • Διαβάζει Object.keys(PER_COMMAND) από rate-limiter.js
- *         • Αν υπάρχουν handlers χωρίς config → LOG.warn με λίστα
- *         • Αν όλα OK → LOG.security verified
+ *   Σημείωση: Το resize (για > 200KB) γίνεται στο favicon-service, όχι
+ *   εδώ — το importFaviconsSimple είναι για ήδη-resized favicons από
+ *   το options page. Αν κάποιος στείλει > 200KB, το skip είναι σωστό.
  *
- *     Impact:
- *       Catch configuration drift σε development. Zero runtime overhead.
+ * Impact:
+ *   • ✅ Import από options page δέχεται 200KB favicons
+ *   • ✅ Consistency με favicon-service storage limit
+ *   • ✅ Zero regression σε existing exports (ήδη < 50KB)
+ * ══════════════════════════════════════════════════════════════════════
+ * v12.4.0 (2026-10-27) — STABILITY FIXES
+ * ══════════════════════════════════════════════════════════════════════
+ * H-1 FIX (HIGH): importFaviconsSimple δεν καθάριζε negative cache
+ *   ΠΡΟΒΛΗΜΑ:
+ *     Ο handler έγραφε storage.local απευθείας, αλλά:
+ *       ❌ ΔΕΝ invalidated το favicon-service._negativeCache
+ *       ❌ ΔΕΝ έκανε broadcast faviconUpdate στα ανοιχτά overlays
+ *     Συνέπεια: Import favicons από options page → τα νέα favicons
+ *     δεν εμφανίζονταν στο overlay για 5min (TTL του negative cache).
+ *   ΛΥΣΗ:
+ *     Consistency με messaging.js::handleImportFavicons (v12.3.0):
+ *       1. CBF_FAVICON.invalidateNegativeCache() — server-side
+ *       2. CBF_FAVICON._internal._broadcastFavicon() για κάθε entry
  *
- *   VERSION ALIGNMENT:
- *     • @version 12.2.0 → 12.3.0
- *     • Ενοποίηση init log strings (v12.2 → v12.3)
- *   ══════════════════════════════════════════════════════════════════════
- *   v12.2.0 (2026-09-26) — LOW-END HARDWARE OPTIMIZATION
- *   ══════════════════════════════════════════════════════════════════════
- *   SAFE-01 (error mapping):
- *     • _mapSetupError:    + ARGON2_LOW_MEMORY
- *     • _mapUnlockError:   + ARGON2_LOW_MEMORY
- *     • _mapChangePwdError: + ARGON2_LOW_MEMORY (defensive)
- *
- *     Rationale:
- *       Σε low-end μηχανήματα (< 1GB RAM), το WASM allocation για
- *       64 MiB μπορεί να αποτύχει. Το argon2-loader.js v12.2 πετάει
- *       σαφές σφάλμα 'ARGON2_LOW_MEMORY: ...' που τώρα mapped σε
- *       distinct error code (αντί για generic 'ARGON2_ERROR').
- *
- *       Ο client (overlay) μπορεί να δείξει φιλικό μήνυμα:
- *       "Χρειάζονται 64MB ελεύθερης μνήμης."
- *   ══════════════════════════════════════════════════════════════════════
+ * L-4 FIX (LOW): Νέος reloadBookmarksPage handler
+ *   ΠΡΟΒΛΗΜΑ:
+ *     Το bookmarks.js είχε orphan listener για 'reloadBookmarksPage'
+ *     που δεν έστελνε κανείς. Ελλιπές flow (options → setHomepage →
+ *     reload bookmarks tabs).
+ *   ΛΥΣΗ:
+ *     Νέος handler στο runtime.onMessage που κάνει broadcast σε όλα
+ *     τα ανοιχτά bookmarks.html tabs (options.js το καλεί μετά από
+ *     επιτυχές setHomepage).
+ * ══════════════════════════════════════════════════════════════════════
+ * v12.3.0 (2026-09-28) — RATE LIMITER CONFIG VERIFICATION
+ * ══════════════════════════════════════════════════════════════════════
+ * FIX-6 (LOW): Startup verification ότι όλα τα HANDLERS έχουν
+ * PER_COMMAND rate limit entry.
+ * ══════════════════════════════════════════════════════════════════════
+ * v12.2.0 (2026-09-26) — LOW-END HARDWARE OPTIMIZATION
+ * ══════════════════════════════════════════════════════════════════════
+ * SAFE-01 (error mapping):
+ *   • _mapSetupError:    + ARGON2_LOW_MEMORY
+ *   • _mapUnlockError:   + ARGON2_LOW_MEMORY
+ *   • _mapChangePwdError: + ARGON2_LOW_MEMORY (defensive)
+ * ══════════════════════════════════════════════════════════════════════
  *
  * FULL HISTORY
  *   → docs/ECBF-Manual.html → search "background"
  */
-
 (function() {
   'use strict';
 
@@ -486,12 +499,15 @@
         if (CBF_VAULT_FSM.isBusy()) {
           return { success: false, error: 'BUSY' };
         }
+
         await CBF_VAULT_FSM.beginUnlock();
         await CBF_ES.setup(msg.password);
         await CBF_VAULT_FSM.completeUnlock();
+
         CBF_SESSION.grantCapabilitiesToAll([
           CBF_SESSION.CAP_READ, CBF_SESSION.CAP_WRITE
         ]);
+
         CBF_RATE_LIMITER.reset(SIMPLE_AUTH_KEY);
         LOG.security('Setup succeeded via options');
         return { success: true };
@@ -523,12 +539,15 @@
         if (CBF_VAULT_FSM.isBusy()) {
           return { success: false, error: 'BUSY' };
         }
+
         await CBF_VAULT_FSM.beginUnlock();
         await CBF_ES.unlock(msg.password);
         await CBF_VAULT_FSM.completeUnlock();
+
         CBF_SESSION.grantCapabilitiesToAll([
           CBF_SESSION.CAP_READ, CBF_SESSION.CAP_WRITE
         ]);
+
         CBF_RATE_LIMITER.reset(SIMPLE_AUTH_KEY);
         LOG.security('Unlock succeeded via options');
         return { success: true };
@@ -567,6 +586,7 @@
         if (!status.unlocked) {
           return { success: false, error: 'LOCKED' };
         }
+
         await CBF_ES.changePassword(msg.oldPassword, msg.newPassword);
         CBF_RATE_LIMITER.reset(SIMPLE_AUTH_KEY);
         LOG.security('Password changed via options');
@@ -612,6 +632,8 @@
     }
 
     // ─── importFaviconsSimple ───
+    //  🔧 v12.4.0 H-1 FIX: Invalidate negative cache + broadcast
+    //  🔧 v12.5.0: 50KB → 200KB (consistency με favicon-service)
     if (msg.type === 'importFaviconsSimple') {
       try {
         const items = msg.items || [];
@@ -619,12 +641,15 @@
           return { success: false, error: 'items must be array' };
         }
         let imported = 0;
+        const importedItems = [];   // 🔧 v12.4: collect για broadcast
+
         for (const item of items) {
           try {
             if (!item || !item.dataUrl) continue;
             if (!item.dataUrl.startsWith('data:image/')) continue;
-            // 🔧 v12.2.0 FAV-02: 10KB → 50KB (consistency με favicon-service)
-            if (item.dataUrl.length > 50 * 1024) continue;
+            // 🔧 v12.5.0: 50KB → 200KB (consistency με favicon-service
+            //              MAX_STORAGE_DATAURL_LENGTH)
+            if (item.dataUrl.length > 200 * 1024) continue;
             if (typeof item.url !== 'string') continue;
             if (!/^https?:\/\//i.test(item.url)) continue;
 
@@ -632,9 +657,51 @@
             const update = { [`favicon_${hostname}`]: item.dataUrl };
             if (item.color) update[`favicon_color_${hostname}`] = item.color;
             await browser.storage.local.set(update);
+            importedItems.push({
+              hostname,
+              dataUrl: item.dataUrl,
+              color: item.color || null
+            });
             imported++;
           } catch (_) {}
         }
+
+        // ═════════════════════════════════════════════════════════════
+        //  🔧 v12.4.0 H-1 FIX: Invalidate negative cache + broadcast
+        //
+        //  Consistency με messaging.js::handleImportFavicons (v12.3.0).
+        //  Χωρίς αυτό, το options page import δεν καθαρίζει το negative
+        //  cache και τα νέα favicons δεν εμφανίζονται για 5min στο overlay.
+        // ═════════════════════════════════════════════════════════════
+        if (imported > 0 && typeof CBF_FAVICON !== 'undefined') {
+          // 1. Invalidate server-side negative cache
+          if (typeof CBF_FAVICON.invalidateNegativeCache === 'function') {
+            const cleared = CBF_FAVICON.invalidateNegativeCache();
+            LOG.info(
+              `importFaviconsSimple: invalidated negative cache (${cleared} entries)`
+            );
+          }
+
+          // 2. Broadcast σε όλα τα ports — excludePort=null (κανένα δεν είναι caller)
+          try {
+            if (CBF_FAVICON._internal?._broadcastFavicon) {
+              for (const entry of importedItems) {
+                CBF_FAVICON._internal._broadcastFavicon(
+                  entry.hostname,
+                  entry.dataUrl,
+                  entry.color,
+                  null
+                );
+              }
+              LOG.info(
+                `importFaviconsSimple: broadcast ${importedItems.length} faviconUpdate(s)`
+              );
+            }
+          } catch (bcErr) {
+            LOG.warn('importFaviconsSimple: broadcast failed:', bcErr.message);
+          }
+        }
+
         LOG.info(`Imported ${imported} favicons`);
         return { success: true, importedCount: imported };
       } catch (e) {
@@ -661,6 +728,30 @@
       await browser.storage.local.remove('userHomepage');
       LOG.info('Homepage reset');
       return { success: true };
+    }
+
+    // ─── 🔧 v12.4.0 L-4 FIX: reloadBookmarksPage ───
+    //  Broadcast σε όλα τα ανοιχτά bookmarks.html tabs.
+    //  Καλείται από options.js μετά από επιτυχές setHomepage.
+    if (msg.type === 'reloadBookmarksPage') {
+      try {
+        const url = browser.runtime.getURL('bookmarks/bookmarks.html');
+        const tabs = await browser.tabs.query({ url });
+        let count = 0;
+        for (const t of tabs) {
+          try {
+            await browser.tabs.sendMessage(t.id, { action: 'reloadBookmarksPage' });
+            count++;
+          } catch (_) {
+            // Tab may have been closed or in an inactive state — skip
+          }
+        }
+        LOG.info(`reloadBookmarksPage: broadcast to ${count}/${tabs.length} tab(s)`);
+        return { success: true, count, total: tabs.length };
+      } catch (e) {
+        LOG.warn('reloadBookmarksPage failed:', e.message);
+        return { success: false, error: e.message };
+      }
     }
 
     // ─── Options ───
@@ -994,11 +1085,11 @@
   // ============================================================
   //  Top-level ready log
   // ============================================================
-   LOG.security(
-    'Background ready (v12.3.0: L-08 REV + M-03 + M-07 + M-08 + H-02 + ' +
+  LOG.security(
+    'Background ready (v12.5.0: L-08 REV + M-03 + M-07 + M-08 + H-02 + ' +
     'SAFE-01 low-memory + passive favicons + periodic integrity + ' +
-    'rate limiter config verification + V12E main-menu + V12E context-menu — ' +
-    '24 injected scripts)'
+    'rate limiter config verification + V12E main-menu + V12E context-menu + ' +
+    'H-1 importFavicons invalidate + L-4 reloadBookmarksPage + ' +
+    'v12.5 importFavicons 200KB — 24 injected scripts)'
   );
-
 })();

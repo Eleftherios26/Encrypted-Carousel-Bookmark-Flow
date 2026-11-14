@@ -1,19 +1,18 @@
 /**
  * options.js — Options page controller
- *
  * @path     overlay/options/options.js
- * @version  12.3.0
- * @since    v12E / v12.3
+ * @version  12.4.0
+ * @since    v12E / v12.4
  *
  * PURPOSE
  *   Controller για τη σελίδα ρυθμίσεων. Διαχειρίζεται:
- *     • Homepage (save / reset / load)
- *     • Vault status (locked / unlocked / uninitialized)
- *     • Setup vault (createEncrypted)
- *     • Change password (changePassword)
- *     • Unlock (lock screen)
- *     • Strict privacy toggle
- *     • Import favicons
+ *   • Homepage (save / reset / load)
+ *   • Vault status (locked / unlocked / uninitialized)
+ *   • Setup vault (createEncrypted)
+ *   • Change password (changePassword)
+ *   • Unlock (lock screen)
+ *   • Strict privacy toggle
+ *   • Import favicons
  *
  * ERROR HANDLING (M-05)
  *   • ERROR_MESSAGES whitelist map (code → friendly message)
@@ -25,40 +24,62 @@
  *   D-21, D-30
  *
  * CHANGELOG
- *   ══════════════════════════════════════════════════════════════════════
- *   v12.3.0 (2026-09-28) — SAFE-01 WHITELIST ALIGNMENT
- *   ══════════════════════════════════════════════════════════════════════
- *   SAFE-01 FIX (HIGH): ARGON2_LOW_MEMORY whitelist entry
+ * ══════════════════════════════════════════════════════════════════════
+ * v12.4.0 (2026-10-27) — L-4 FIX: Reload bookmarks tabs on homepage save
+ * ══════════════════════════════════════════════════════════════════════
+ * ΠΡΙΝ:
+ *   Μετά από επιτυχές setHomepage, τα ανοιχτά bookmarks.html tabs
+ *   (newtab/homepage) ΔΕΝ ανανεώνονταν αυτόματα. Ο χρήστης έπρεπε
+ *   να κάνει χειροκίνητο reload για να δει το νέο homepage.
  *
- *     ΠΡΟΒΛΗΜΑ:
- *       Το argon2-loader.js (v12.2) παράγει error code
- *       'ARGON2_LOW_MEMORY' όταν η WASM allocation 64MB αποτύχει
- *       σε low-end hardware. Ο unlock-handler.js και το background.js
- *       το map-άρουν σωστά, ΑΛΛΑ το options.js ERROR_MESSAGES δεν
- *       είχε καταχώρηση → fallback στο _DEFAULT:
- *         "Κάτι πήγε λάθος. Δοκιμάστε ξανά."
+ * ΜΕΤΑ:
+ *   Μετά από επιτυχές setHomepage, καλούμε
+ *   browser.runtime.sendMessage({ type: 'reloadBookmarksPage' })
+ *   → background.js broadcast → bookmarks.js reload → redirect
+ *   στο νέο homepage. Zero χειροκίνητο reload.
  *
- *       Αποτέλεσμα: ο χρήστης δεν καταλάβαινε ότι έπρεπε να
- *       ελευθερώσει RAM.
+ *   Complete flow:
+ *     options.js (saveBtn) →
+ *     background.js (reloadBookmarksPage handler) →
+ *     bookmarks.js (location.reload()) →
+ *     bookmarks.js::init() (redirect στο νέο homepage)
  *
- *     ΛΥΣΗ:
- *       Προσθήκη 'ARGON2_LOW_MEMORY' στο ERROR_MESSAGES whitelist
- *       (πρώτη θέση στην Argon2 ενότητα για precedence clarity).
+ * Impact:
+ *   Καλύτερη UX: ο χρήστης αλλάζει homepage → όλα τα tabs
+ *   ενημερώνονται αυτόματα.
  *
- *     Impact:
- *       • Proper UX στο options page (setup/changePassword flow)
- *       • Consistency με unlock-handler + background mappings
- *       • Zero impact σε high-end users (unreachable code path)
- *
- *   VERSION ALIGNMENT:
- *     • @version 12.0.0 → 12.3.0
- *     • Καμία functional αλλαγή πέραν του SAFE-01 whitelist entry
- *   ══════════════════════════════════════════════════════════════════════
+ * VERSION ALIGNMENT:
+ *   • @version 12.3.0 → 12.4.0
+ *   • @since v12E / v12.3 → v12E / v12.4
+ *   • Init log strings: v12.3.0 → v12.4.0
+ * ══════════════════════════════════════════════════════════════════════
+ * v12.3.0 (2026-09-28) — SAFE-01 WHITELIST ALIGNMENT
+ * ══════════════════════════════════════════════════════════════════════
+ * SAFE-01 FIX (HIGH): ARGON2_LOW_MEMORY whitelist entry
+ * ΠΡΟΒΛΗΜΑ:
+ *   Το argon2-loader.js (v12.2) παράγει error code
+ *   'ARGON2_LOW_MEMORY' όταν η WASM allocation 64MB αποτύχει
+ *   σε low-end hardware. Ο unlock-handler.js και το background.js
+ *   το map-άρουν σωστά, ΑΛΛΑ το options.js ERROR_MESSAGES δεν
+ *   είχε καταχώρηση → fallback στο _DEFAULT:
+ *     "Κάτι πήγε λάθος. Δοκιμάστε ξανά."
+ *   Αποτέλεσμα: ο χρήστης δεν καταλάβαινε ότι έπρεπε να
+ *   ελευθερώσει RAM.
+ * ΛΥΣΗ:
+ *   Προσθήκη 'ARGON2_LOW_MEMORY' στο ERROR_MESSAGES whitelist
+ *   (πρώτη θέση στην Argon2 ενότητα για precedence clarity).
+ * Impact:
+ *   • Proper UX στο options page (setup/changePassword flow)
+ *   • Consistency με unlock-handler + background mappings
+ *   • Zero impact σε high-end users (unreachable code path)
+ * VERSION ALIGNMENT:
+ *   • @version 12.0.0 → 12.3.0
+ *   • Καμία functional αλλαγή πέραν του SAFE-01 whitelist entry
+ * ══════════════════════════════════════════════════════════════════════
  *
  * FULL HISTORY
  *   → docs/ECBF-Manual.html → search "options"
  */
-
 (function() {
   'use strict';
 
@@ -138,7 +159,6 @@
 
   /**
    * M-05: friendlyError(code, context)
-   *
    * Μετατρέπει error code → φιλικό μήνυμα.
    * Αν το code δεν είναι στο whitelist → default message.
    */
@@ -157,7 +177,6 @@
 
   /**
    * M-05: logRawError(code, message, context)
-   *
    * Log-άρει το πραγματικό error message στο console (developers),
    * αλλά ΔΕΝ εμφανίζεται στο UI.
    */
@@ -175,6 +194,7 @@
     el.textContent = text;
     el.className = 'status-message ' + type;
   }
+
   function show(el) { if (el) el.classList.remove('hidden'); }
   function hide(el) { if (el) el.classList.add('hidden'); }
 
@@ -191,7 +211,7 @@
 
   // ============================================================
   //  URL normalization
-  //  Δέχεται: `www.example.com` (χωρίς protocol) → https://
+  //  Δέχεται: www.example.com (χωρίς protocol) → https://
   // ============================================================
   function normalizeUrl(raw) {
     if (typeof raw !== 'string') return null;
@@ -247,8 +267,41 @@
         const res = await browser.runtime.sendMessage({ type: 'setHomepage', url });
         if (res && res.success) {
           $('homepageUrl').value = url;
-          alert('✅ Αποθηκεύτηκε:\n' + url);
           log(`Homepage saved: ${url}`);
+
+          // 🔧 v12.4 L-4 FIX: Reload open bookmarks tabs
+          //
+          //  Μετά από επιτυχές setHomepage, τα ανοιχτά bookmarks.html
+          //  tabs (newtab/homepage) πρέπει να ανανεωθούν για να δουν
+          //  το νέο homepage. Το background κάνει broadcast σε όλα
+          //  τα tabs, και κάθε bookmarks.js κάνει location.reload()
+          //  → init() → redirect στο νέο homepage.
+          //
+          //  Fail-soft: αν αποτύχει, απλώς log (δεν σπάει το save).
+          let reloadedCount = 0;
+          let reloadedTotal = 0;
+          try {
+            const rlRes = await browser.runtime.sendMessage({ type: 'reloadBookmarksPage' });
+            if (rlRes && rlRes.success) {
+              reloadedCount = rlRes.count || 0;
+              reloadedTotal = rlRes.total || 0;
+              if (reloadedTotal > 0) {
+                log(`reloadBookmarksPage: broadcast to ${reloadedCount}/${reloadedTotal} tab(s)`);
+              } else {
+                log('reloadBookmarksPage: no open bookmarks tabs');
+              }
+            }
+          } catch (rlErr) {
+            warn('reloadBookmarksPage failed (non-fatal):', rlErr.message);
+          }
+
+          // Ενημερωτικό alert με πληροφορία για τα reloaded tabs
+          let successMsg = '✅ Αποθηκεύτηκε:\n' + url;
+          if (reloadedTotal > 0) {
+            successMsg += `\n\n🔄 Ανανεώθηκαν ${reloadedCount}/${reloadedTotal} ανοιχτές καρτέλες.`;
+          }
+          alert(successMsg);
+
         } else {
           alert('Σφάλμα: ' + ((res && res.error) || 'UNKNOWN'));
         }
@@ -262,9 +315,19 @@
   if (resetBtn) {
     resetBtn.addEventListener('click', async () => {
       if (!confirm('Να διαγραφούν οι ρυθμίσεις αρχικής σελίδας;')) return;
+
       try {
         await browser.runtime.sendMessage({ type: 'resetHomepage' });
         $('homepageUrl').value = '';
+
+        // 🔧 v12.4 L-4 FIX: Reload bookmarks tabs μετά reset
+        try {
+          const rlRes = await browser.runtime.sendMessage({ type: 'reloadBookmarksPage' });
+          if (rlRes && rlRes.success && rlRes.total > 0) {
+            log(`Reset: reloaded ${rlRes.count}/${rlRes.total} bookmarks tab(s)`);
+          }
+        } catch (_) {}
+
         alert('✅ Διαγράφηκαν');
         log('Homepage reset');
       } catch (e) {
@@ -569,12 +632,14 @@
   //  Init
   // ============================================================
   (async function init() {
-    log('Options page init (v12.3.0)');
+    log('Options page init (v12.4.0)');
+
     translatePage();
     await loadSettings();
     await loadStrictPrivacy();
     await checkEncryptedStatusAndShowContent();
-    log('Options page READY (v12.3.0)');
+
+    log('Options page READY (v12.4.0)');
   })();
 
 })();

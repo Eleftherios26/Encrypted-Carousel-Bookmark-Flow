@@ -2,17 +2,17 @@
  * import-service.js — Import validators (pure, no IO)
  *
  * @path     background/services/import-service.js
- * @version  12.0.0
- * @since    v12E
+ * @version  12.5.0
+ * @since    v12E / v12.5
  *
  * PURPOSE
  *   Validation ONLY για imports. ΔΕΝ κάνει crypto, ΔΕΝ γράφει IDB,
  *   ΔΕΝ καλεί sequencer. Επιστρέφει normalized items ή throw.
  *
- *   Public API:
- *     1. validateEncryptedBackup(data) → { valid, error?, records? }
- *     2. validatePlainExport(data)     → { valid, error?, items? }
- *     3. validateImportFavicons(items) → { valid, error?, items? }
+ * Public API:
+ *   1. validateEncryptedBackup(data) → { valid, error?, records? }
+ *   2. validatePlainExport(data)     → { valid, error?, items? }
+ *   3. validateImportFavicons(items) → { valid, error?, items? }
  *
  * HARD LIMITS (DoS protection — D-56)
  *   • MAX_ITEMS        = 50,000  (records per import)
@@ -22,21 +22,50 @@
  *
  * NON-OBVIOUS
  *   • validatePlainExport υποστηρίζει 3 formats:
- *       - { type: 'plain', data: [...] }
- *       - Array of items
- *       - Firefox restore format (root container με children)
+ *     - { type: 'plain', data: [...] }
+ *     - Array of items
+ *     - Firefox restore format (root container με children)
+ *
  *   • Cycle detection (BFS με MAX_DEPTH) σε plain imports —
  *     αποτρέπει malicious backups που δημιουργούν infinite loops.
- *   • validateImportFavicons χρησιμοποιεί το νέο 50KB limit
- *     (V12E.E-FAVICON-01 consistency).
+ *
+ *   • validateImportFavicons χρησιμοποιεί το 200KB limit (v12.5.0)
+ *     consistency με favicon-service MAX_STORAGE_DATAURL_LENGTH.
+ *     ΣΗΜΕΙΩΣΗ: Το importFaviconsSimple στο background.js έχει το
+ *     ΙΔΙΟ 200KB limit. Αν κάποιος στείλει > 200KB, το skip είναι
+ *     σωστό — για > 200KB favicons χρησιμοποιείται auto-resize στο
+ *     favicon-service πριν την αποθήκευση.
  *
  * DECISIONS
  *   D-51, D-56
  *
+ * CHANGELOG
+ * ══════════════════════════════════════════════════════════════════════
+ * v12.5.0 (2026-10-28) — LARGE FAVICON IMPORT SUPPORT
+ * ══════════════════════════════════════════════════════════════════════
+ * ΠΡΟΒΛΗΜΑ:
+ *   Το `validateImportFavicons` είχε inline `50 * 1024` limit,
+ *   απορρίπτοντας multi-res ICO και retina PNG favicons (50-200KB).
+ *
+ * ΛΥΣΗ:
+ *   Consistency με favicon-service v12.5.0:
+ *     • 50 * 1024  →  200 * 1024  (200KB)
+ *
+ *   Σημείωση: Το resize των >200KB favicons γίνεται στο
+ *   favicon-service πριν φτάσουν εδώ (import flow: user upload →
+ *   options → background → favicon-service resize → storage).
+ *
+ * Impact:
+ *   • ✅ Import δέχεται 200KB favicons (multi-res ICO, retina PNG)
+ *   • ✅ Consistency με export-service + favicon-service + background
+ *   • ✅ Zero regression σε existing exports (ήδη < 50KB)
+ * ══════════════════════════════════════════════════════════════════════
+ * v12.0.0 — Initial release
+ * ══════════════════════════════════════════════════════════════════════
+ *
  * FULL HISTORY
  *   → docs/ECBF-Manual.html → search "import-service"
  */
-
 var CBF_IMPORT_SERVICE = (function() {
   'use strict';
 
@@ -47,6 +76,9 @@ var CBF_IMPORT_SERVICE = (function() {
   const MAX_TITLE_LENGTH = 500;
   const MAX_URL_LENGTH   = 2048;
   const MAX_DEPTH        = 100;
+
+  // 🔧 v12.5.0: favicon storage limit (consistency με favicon-service)
+  const MAX_FAVICON_SIZE = 200 * 1024;   // 200KB (was 50KB in v12E)
 
   const ROOT_ID = 'ecbf-root';
 
@@ -319,6 +351,9 @@ var CBF_IMPORT_SERVICE = (function() {
 
   // ============================================================
   //  5. validateImportFavicons
+  //
+  //  🔧 v12.5.0: 50KB → 200KB (consistency με favicon-service
+  //              MAX_STORAGE_DATAURL_LENGTH)
   // ============================================================
   function validateImportFavicons(items) {
     if (!Array.isArray(items)) {
@@ -343,7 +378,8 @@ var CBF_IMPORT_SERVICE = (function() {
 
       if (typeof item.dataUrl !== 'string') continue;
       if (!item.dataUrl.startsWith('data:image/')) continue;
-      if (item.dataUrl.length > 50 * 1024) continue;   // V12E.E-FAVICON-01 consistency
+      // 🔧 v12.5.0: 50KB → 200KB (consistency με favicon-service)
+      if (item.dataUrl.length > MAX_FAVICON_SIZE) continue;
 
       let color = null;
       if (typeof item.color === 'string' && item.color.startsWith('rgb')) {
@@ -374,7 +410,8 @@ var CBF_IMPORT_SERVICE = (function() {
     MAX_ITEMS,
     MAX_TITLE_LENGTH,
     MAX_URL_LENGTH,
-    MAX_DEPTH
+    MAX_DEPTH,
+    MAX_FAVICON_SIZE  // 🔧 v12.5.0
   };
 
   // ============================================================
@@ -385,8 +422,9 @@ var CBF_IMPORT_SERVICE = (function() {
 
   if (typeof CBF_LOGGER !== 'undefined') {
     CBF_LOGGER.info(
-      'Import Service ready (D-51: pure validators, ' +
-      '50k items max, cycle detection, dual format support)'
+      'Import Service ready (v12.5.0: D-51: pure validators, ' +
+      '50k items max, cycle detection, dual format support, ' +
+      'MAX_FAVICON_SIZE=200KB)'
     );
   }
 

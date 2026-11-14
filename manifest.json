@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Encrypted Carousel Bookmark Flow",
   "short_name": "ECBF",
-  "version": "12.3.2",
+  "version": "12.5",
   "default_locale": "el",
   "description": "Encrypted Carousel Bookmark Flow – Απομονωμένος κρυπτογραφημένος χώρος σελιδοδεικτών.",
   "homepage_url": "https://github.com/Eleftherios26/encrypted-carousel-bookmark-flow",
